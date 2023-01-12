@@ -7,54 +7,58 @@ from subroutines import initialise_centroids
 
 
 if __name__ == '__main__':
-    data = [
-        (12, 23),
-        (80, 80),
-        (10, 10),
-        (1, 40),
-        (49, 20),
-        (99, 94),
-        (70, 40),
-        (84, 94),
-        (70, 92)
+    # Todo: Skripte und grafische Auswertungen erstellen
+    # bisher habe ich nur die oberen Schranken mit Ptolemy erstellt
 
-    ]
-
-    k = 4
-    data = create_clustered_data(4000, dimension=2, clusters=k)
+    k = 10
+    data = create_clustered_data(6000, dimension=10, clusters=k)
 
     initial_centroids = initialise_centroids(k=k, data=data)
-    intial_centroid_set = [(1, 1), (23, 90), (47, 14), (40, 68), (91, 34), (30, 2), (55, 95), (90, 3), (4, 71), (60, 8)]
-    initial_centroids = intial_centroid_set[0:k]
-    # TODO: keiner der Algorithmen ist deterministisch!! Alle produzieren in verschieden Durchläufen unterschiedliche
-    #  Ergebnisse mit den gleichen Daten und initialen Zentren!!
     # todo: Die Berechnung des jeweiligen Zielfunktionswertes geht aktuell mit in die Zeitberechnung ein
     start = time.time()
     centroids, assignment, iterations_lloyd, assignment_1_lloyd = lloyd_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
     zielfunktionswert_lloyd = calculate_zielfunktion(centroids, assignment) / len(assignment)
     step = time.time()
-    centroids, assignment, iterations_hamerly, saved_dist_comp =\
-        hamerly_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
-    zielfunktionswert_hamerly = calculate_zielfunktion(centroids, assignment) / len(assignment)
-    step2 = time.time()
-    centroids, assignment, iterations_elkan =\
+    centroids, assignment, iterations_elkan, saved_dist_comp_theory, saved_dist_comp_practice =\
         elkan_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
     zielfunktionswert_elkan = calculate_zielfunktion(centroids, assignment) / len(assignment)
+    step2 = time.time()
+    centroids, assignment, iterations_hamerly_pto, saved_dist_comp_theory_pto, saved_dist_comp_practice_pto =\
+        hamerly_algorithm_with_ptolemy(data=data, k=k, initial_centroids=initial_centroids.copy())
+    zielfunktionswert_hamerly_pto = calculate_zielfunktion(centroids, assignment) / len(assignment)
+    step3 = time.time()
+    centroids, assignment, iterations_hybrid, saved_dist_comp_theory_hybrid, saved_dist_comp_practice_hybrid =\
+        elkan_ptolemy_hybrid_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
+    zielfunktionswert_hybrid = calculate_zielfunktion(centroids, assignment) / len(assignment)
     end = time.time()
     print(f'Lloyd Algorithm needed {round(step - start, 4)} seconds')
-    print(f'Hamerly Algorithm needed {round(step2 - step, 4)} seconds')
-    print(f'Elkan Algorithm needed {round(end - step2, 4)} seconds')
+    print(f'Elkan Algorithm needed {round(step2 - step, 4)} seconds')
+    print(f'Hamerly_Pto Algorithm needed {round(step3 - step2, 4)} seconds')
+    print(f'Hybrid Algorithm needed {round(end - step3, 4)} seconds')
+
+    print('Saved distance computations with Elkan:')
+    print(f'In Theory: {saved_dist_comp_theory}')
+    print(f'In Practice: {saved_dist_comp_practice}')
+    print('Saved distance computations with Hamerly_Pto:')
+    print(f'In Theory: {saved_dist_comp_theory_pto}')
+    print(f'In Practice: {saved_dist_comp_practice_pto}')
+    print('Saved distance computations with Hybrid:')
+    print(f'In Theory: {saved_dist_comp_theory_hybrid}')
+    print(f'In Practice: {saved_dist_comp_practice_hybrid}')
 
     # Zielfunktionswert
-    if zielfunktionswert_lloyd != zielfunktionswert_elkan:
+    if zielfunktionswert_elkan != zielfunktionswert_hybrid:
         print('Warning! The zielfunktionswerte were different...')
     print(f'Lloyd: {zielfunktionswert_lloyd}')
-    print(f'Hamerly: {zielfunktionswert_hamerly}')
     print(f'Elkan: {zielfunktionswert_elkan}')
+    print(f'Hamerly_Pto: {zielfunktionswert_hamerly_pto}')
+    print(f'Hybrid: {zielfunktionswert_hybrid}')
     print(f'Iterations Lloyd: {iterations_lloyd}')
-    print(f'Iterations Hamelry: {iterations_hamerly}')
-    print(f'Iterations Elkan: {iterations_elkan}')
+    print(f'Iterations Hamelry: {iterations_elkan}')
+    print(f'Iterations Hamerly_Pto: {iterations_hamerly_pto}')
+    print(f'Iterations Hybrid: {iterations_hybrid}')
 
+    # # For Debugging
     # same = (assignment_1_lloyd == assignment_1_elkan)
     # first_difference = False
     # i = 0
@@ -64,11 +68,10 @@ if __name__ == '__main__':
     #         first_difference = point
     #     i += 1
 
-
-    # Visualisation
-    coordinates = np.array(list(assignment.keys())).transpose()
-    plt.scatter(x=coordinates[0], y=coordinates[1], c=list(assignment.values()))
-    for centroid in centroids:
-        plt.plot(centroid[0], centroid[1], marker='^')
-    plt.show()
+    # # Visualisation
+    # coordinates = np.array(list(assignment.keys())).transpose()
+    # plt.scatter(x=coordinates[0], y=coordinates[1], c=list(assignment.values()))
+    # for centroid in centroids:
+    #     plt.plot(centroid[0], centroid[1], marker='^')
+    # plt.show()
 

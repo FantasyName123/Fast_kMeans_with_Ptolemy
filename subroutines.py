@@ -7,8 +7,9 @@ from helpers import *
 
 def initialise_centroids(data, k):
     dimension = len(data[0])
+    np.random.seed(0)
     centroids = np.random.rand(k, dimension)
-    centroids *= 120
+    centroids *= 120  # die Daten liegen nicht ganz in einem 100^n Würfel
     centroids = [tuple(row) for row in centroids]
     return centroids
 
