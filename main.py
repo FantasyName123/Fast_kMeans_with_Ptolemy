@@ -11,26 +11,31 @@ if __name__ == '__main__':
     # bisher habe ich nur die oberen Schranken mit Ptolemy erstellt
 
     k = 10
-    data = create_clustered_data(6000, dimension=10, clusters=k)
+    data = create_clustered_data(6000, dimension=6, clusters=k)
 
     initial_centroids = initialise_centroids(k=k, data=data)
     # todo: Die Berechnung des jeweiligen Zielfunktionswertes geht aktuell mit in die Zeitberechnung ein
     start = time.time()
-    centroids, assignment, iterations_lloyd, assignment_1_lloyd = lloyd_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
+    centroids, assignment, iterations_lloyd, assignment_1_lloyd = \
+        lloyd_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
     zielfunktionswert_lloyd = calculate_zielfunktion(centroids, assignment) / len(assignment)
+
     step = time.time()
     centroids, assignment, iterations_elkan, saved_dist_comp_theory, saved_dist_comp_practice =\
         elkan_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
     zielfunktionswert_elkan = calculate_zielfunktion(centroids, assignment) / len(assignment)
+
     step2 = time.time()
     centroids, assignment, iterations_hamerly_pto, saved_dist_comp_theory_pto, saved_dist_comp_practice_pto =\
-        hamerly_algorithm_with_ptolemy(data=data, k=k, initial_centroids=initial_centroids.copy())
+        hamerly_both_ptolemy_upper_bound_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
     zielfunktionswert_hamerly_pto = calculate_zielfunktion(centroids, assignment) / len(assignment)
+
     step3 = time.time()
     centroids, assignment, iterations_hybrid, saved_dist_comp_theory_hybrid, saved_dist_comp_practice_hybrid =\
-        elkan_ptolemy_hybrid_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
+        elkan_lower_ptolemy_upper_bound_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
     zielfunktionswert_hybrid = calculate_zielfunktion(centroids, assignment) / len(assignment)
     end = time.time()
+
     print(f'Lloyd Algorithm needed {round(step - start, 4)} seconds')
     print(f'Elkan Algorithm needed {round(step2 - step, 4)} seconds')
     print(f'Hamerly_Pto Algorithm needed {round(step3 - step2, 4)} seconds')

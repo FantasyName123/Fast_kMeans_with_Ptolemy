@@ -131,14 +131,15 @@ def hamerly_algorithm(data, k, initial_centroids):
 
 
 # todo (maybe): catch pivot_1 = pivot_2 errors (division by zero)
-def hamerly_algorithm_with_ptolemy(data, k, initial_centroids):
-    '''
+def hamerly_both_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
+    """
     This variant uses both triangle and Ptolemy inequality for the upper bound
+
     :param data:
     :param k:
     :param initial_centroids:
     :return:
-    '''
+    """
     # initialise
     centroids = initial_centroids
     print(f'Hamerly Pto: {centroids}')
@@ -160,12 +161,8 @@ def hamerly_algorithm_with_ptolemy(data, k, initial_centroids):
     dimension = len(data[0])
     zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
     zero_2 = tuple([0 for dim in range(dimension)])
-    all_dist_to_zero_1 = all_dist(data, query=zero_1)
-    all_dist_to_zero_2 = all_dist(data, query=zero_2)
-    saved_dist_comp_theory -= len(data) * 2
-    saved_dist_comp_practice -= len(data) * 2
-    point_to_zero_1 = dict(zip(data, all_dist_to_zero_1))
-    point_to_zero_2 = dict(zip(data, all_dist_to_zero_2))
+    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory, saved_dist_comp_practice)
+    point_to_zero_2 = update_points_to_pivot_distances(data, zero_2, saved_dist_comp_theory, saved_dist_comp_practice)
 
     # die bounds müssen erst einmal initialsiert werden, damit man in den ersten Durchlauf starten kann
     for point in data:
@@ -180,13 +177,11 @@ def hamerly_algorithm_with_ptolemy(data, k, initial_centroids):
         saved_dist_comp_practice -= k
 
     # new (old_center_to_zeros distance
-    all_dist_old_centers_zero_1 = all_dist(centroids, query=zero_1)
-    all_dist_old_centers_zero_2 = all_dist(centroids, query=zero_2)
-    saved_dist_comp_theory -= k
-    saved_dist_comp_practice -= k
     # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-    old_centers_to_zero_1 = dict(zip(all_dist_old_centers_zero_1.index, all_dist_old_centers_zero_1))
-    old_centers_to_zero_2 = dict(zip(all_dist_old_centers_zero_2.index, all_dist_old_centers_zero_2))
+    old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                              saved_dist_comp_practice)
+    old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                              saved_dist_comp_practice)
 
     iteration_count = 0
     assignment_updated = True
@@ -195,13 +190,11 @@ def hamerly_algorithm_with_ptolemy(data, k, initial_centroids):
         assignment_updated = False
 
         # new (new_center_to_zero distances)
-        all_dist_new_centers_zero_1 = all_dist(centroids, query=zero_1)
-        all_dist_new_centers_zero_2 = all_dist(centroids, query=zero_2)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
         # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = dict(zip(all_dist_new_centers_zero_1.index, all_dist_new_centers_zero_1))
-        new_centers_to_zero_2 = dict(zip(all_dist_new_centers_zero_2.index, all_dist_new_centers_zero_2))
+        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
+        new_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
 
         # -----------------------  Update Assignment -----------------------
         #   update center to center bounds
@@ -259,13 +252,11 @@ def hamerly_algorithm_with_ptolemy(data, k, initial_centroids):
                 saved_dist_comp_practice += k
 
         # new (old_center_to_zero distances)
-        all_dist_old_centers_zero_1 = all_dist(centroids, query=zero_1)
-        all_dist_old_centers_zero_2 = all_dist(centroids, query=zero_2)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
         # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = dict(zip(all_dist_old_centers_zero_1.index, all_dist_old_centers_zero_1))
-        old_centers_to_zero_2 = dict(zip(all_dist_old_centers_zero_2.index, all_dist_old_centers_zero_2))
+        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
+        old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
 
         # update_center
         moved_distance = update_centroids(centroids, assignment)
@@ -300,14 +291,15 @@ def hamerly_algorithm_with_ptolemy(data, k, initial_centroids):
     return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
 
 
-def hamerly_ptolemy_hybrid_algorithm(data, k, initial_centroids):
-    '''
+def hamerly_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
+    """
     This variant replaces the usual upper bound used by Hamerly with an upper bound created with the Ptolemy inequality
+
     :param data:
     :param k:
     :param initial_centroids:
     :return:
-    '''
+    """
     # initialise
     centroids = initial_centroids
     print(f'Hybrid Ptolemy: {centroids}')
@@ -324,12 +316,8 @@ def hamerly_ptolemy_hybrid_algorithm(data, k, initial_centroids):
     dimension = len(data[0])
     zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
     zero_2 = tuple([0 for dim in range(dimension)])
-    all_dist_to_zero_1 = all_dist(data, query=zero_1)
-    all_dist_to_zero_2 = all_dist(data, query=zero_2)
-    saved_dist_comp_theory -= len(data) * 2
-    saved_dist_comp_practice -= len(data) * 2
-    point_to_zero_1 = dict(zip(data, all_dist_to_zero_1))
-    point_to_zero_2 = dict(zip(data, all_dist_to_zero_2))
+    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory, saved_dist_comp_practice)
+    point_to_zero_2 = update_points_to_pivot_distances(data, zero_2, saved_dist_comp_theory, saved_dist_comp_practice)
 
     # die bounds müssen erst einmal initialsiert werden, damit man in den ersten Durchlauf starten kann
     for point in data:
@@ -342,14 +330,12 @@ def hamerly_ptolemy_hybrid_algorithm(data, k, initial_centroids):
         saved_dist_comp_theory -= k
         saved_dist_comp_practice -= k
 
-    # new (old_center_to_zeros distance
-    all_dist_old_centers_zero_1 = all_dist(centroids, query=zero_1)
-    all_dist_old_centers_zero_2 = all_dist(centroids, query=zero_2)
-    saved_dist_comp_theory -= k
-    saved_dist_comp_practice -= k
+    # new (old_center_to_zeros distance)
     # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-    old_centers_to_zero_1 = dict(zip(all_dist_old_centers_zero_1.index, all_dist_old_centers_zero_1))
-    old_centers_to_zero_2 = dict(zip(all_dist_old_centers_zero_2.index, all_dist_old_centers_zero_2))
+    old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                              saved_dist_comp_practice)
+    old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                              saved_dist_comp_practice)
 
     iteration_count = 0
     assignment_updated = True
@@ -358,13 +344,11 @@ def hamerly_ptolemy_hybrid_algorithm(data, k, initial_centroids):
         assignment_updated = False
 
         # new (new_center_to_zero distances)
-        all_dist_new_centers_zero_1 = all_dist(centroids, query=zero_1)
-        all_dist_new_centers_zero_2 = all_dist(centroids, query=zero_2)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
         # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = dict(zip(all_dist_new_centers_zero_1.index, all_dist_new_centers_zero_1))
-        new_centers_to_zero_2 = dict(zip(all_dist_new_centers_zero_2.index, all_dist_new_centers_zero_2))
+        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
+        new_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
 
         # -----------------------  Update Assignment -----------------------
         #   update center to center bounds
@@ -411,8 +395,10 @@ def hamerly_ptolemy_hybrid_algorithm(data, k, initial_centroids):
         saved_dist_comp_theory -= k
         saved_dist_comp_practice -= k
         # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = dict(zip(all_dist_old_centers_zero_1.index, all_dist_old_centers_zero_1))
-        old_centers_to_zero_2 = dict(zip(all_dist_old_centers_zero_2.index, all_dist_old_centers_zero_2))
+        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
+        old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
 
         # update_center
         moved_distance = update_centroids(centroids, assignment)
@@ -537,7 +523,14 @@ def elkan_algorithm(data, k, initial_centroids):
     return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
 
 
-def elkan_ptolemy_hybrid_algorithm(data, k, initial_centroids):
+def elkan_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
+    """
+
+    :param data:
+    :param k:
+    :param initial_centroids:
+    :return:
+    """
     # Initialisation
     centroids = initial_centroids
     print(f'Elkan Ptolemy Hybrid: {centroids}')
@@ -556,12 +549,10 @@ def elkan_ptolemy_hybrid_algorithm(data, k, initial_centroids):
     dimension = len(data[0])
     zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
     zero_2 = tuple([0 for dim in range(dimension)])
-    all_dist_to_zero_1 = all_dist(data, query=zero_1)
-    all_dist_to_zero_2 = all_dist(data, query=zero_2)
-    saved_dist_comp_theory -= len(data) * 2
-    saved_dist_comp_practice -= len(data) * 2
-    point_to_zero_1 = dict(zip(data, all_dist_to_zero_1))
-    point_to_zero_2 = dict(zip(data, all_dist_to_zero_2))
+    point_to_zero_1 = update_points_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                       saved_dist_comp_practice)
+    point_to_zero_2 = update_points_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                       saved_dist_comp_practice)
 
     for point in data:
         all_dist_this_point = all_dist(dataset=centroids, query=point)
@@ -573,13 +564,11 @@ def elkan_ptolemy_hybrid_algorithm(data, k, initial_centroids):
         saved_dist_comp_practice -= k
 
     # new (old_center_to_zeros distance
-    all_dist_old_centers_zero_1 = all_dist(centroids, query=zero_1)
-    all_dist_old_centers_zero_2 = all_dist(centroids, query=zero_2)
-    saved_dist_comp_theory -= k
-    saved_dist_comp_practice -= k
     # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-    old_centers_to_zero_1 = dict(zip(all_dist_old_centers_zero_1.index, all_dist_old_centers_zero_1))
-    old_centers_to_zero_2 = dict(zip(all_dist_old_centers_zero_2.index, all_dist_old_centers_zero_2))
+    old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                              saved_dist_comp_practice)
+    old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                              saved_dist_comp_practice)
 
     iteration_count = 0
     not_converged = True
@@ -590,13 +579,11 @@ def elkan_ptolemy_hybrid_algorithm(data, k, initial_centroids):
             not_converged = False
 
         # new (new_center_to_zero distances)
-        all_dist_new_centers_zero_1 = all_dist(centroids, query=zero_1)
-        all_dist_new_centers_zero_2 = all_dist(centroids, query=zero_2)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
         # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = dict(zip(all_dist_new_centers_zero_1.index, all_dist_new_centers_zero_1))
-        new_centers_to_zero_2 = dict(zip(all_dist_new_centers_zero_2.index, all_dist_new_centers_zero_2))
+        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
+        new_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
 
         # 1
         for idx, centroid in enumerate(centroids):
@@ -652,13 +639,11 @@ def elkan_ptolemy_hybrid_algorithm(data, k, initial_centroids):
                                 not_converged = True
 
         # new (old_center_to_zero distances)
-        all_dist_old_centers_zero_1 = all_dist(centroids, query=zero_1)
-        all_dist_old_centers_zero_2 = all_dist(centroids, query=zero_2)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
         # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = dict(zip(all_dist_old_centers_zero_1.index, all_dist_old_centers_zero_1))
-        old_centers_to_zero_2 = dict(zip(all_dist_old_centers_zero_2.index, all_dist_old_centers_zero_2))
+        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
+        old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+                                                                  saved_dist_comp_practice)
 
         # 4 and 7 (update center)
         moved_distance = update_centroids(centroids, assignment)
