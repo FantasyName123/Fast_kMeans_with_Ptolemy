@@ -8,7 +8,6 @@ from helpers import *
 def lloyd_algorithm(data, k, initial_centroids):
     # initialise
     centroids = initial_centroids
-    print(f'Lloyd: {centroids}')
     assignment = dict.fromkeys(data, -1)
 
     iteration_count = 0
@@ -25,19 +24,15 @@ def lloyd_algorithm(data, k, initial_centroids):
                 assignment[point] = new_label
                 assignment_updated = True
 
-        if iteration_count == 2:
-            assignment_1 = assignment.copy()
-
         # update_center
         update_centroids(centroids, assignment)
 
-    return centroids, assignment, iteration_count, assignment_1
+    return centroids, assignment, iteration_count, 0, 0
 
 
 def hamerly_algorithm(data, k, initial_centroids):
     # initialise
     centroids = initial_centroids
-    print(f'Hamerly: {centroids}')
     assignment = dict.fromkeys(data, -1)
     upper_bounds_point = dict()
     lower_bounds_point = dict()
@@ -65,13 +60,13 @@ def hamerly_algorithm(data, k, initial_centroids):
 
         # -----------------------  Update Assignment -----------------------
         #   update center to center bounds
-        for idx, centroid in enumerate(centroids):
+        for label, centroid in enumerate(centroids):
             saved_dist_comp_theory -= k * (k-1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
             saved_dist_comp_practice -= k * k
             all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(idx)
+            all_dist_centroid = all_dist_centroid.drop(label)
             new_bound = all_dist_centroid.min()
-            center_bound[idx] = 1/2 * new_bound
+            center_bound[label] = 1/2 * new_bound
 
         for point in data:
             label = assignment[point]
@@ -118,7 +113,7 @@ def hamerly_algorithm(data, k, initial_centroids):
             upper_bounds_point[point] += moved_distance[label]
 
             # todo: correct this problem:
-            # inn here the mistake is hidden. Sometimes it is not save to subtract only the second highest
+            # in here the mistake is hidden. Sometimes it is not save to subtract only the second highest
             # moved distance. Is the label not correct??
             if r == label:
                 pass
@@ -142,7 +137,6 @@ def hamerly_both_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
     """
     # initialise
     centroids = initial_centroids
-    print(f'Hamerly Pto: {centroids}')
     assignment = dict.fromkeys(data, -1)
     upper_bounds_point = dict()
     lower_bounds_point = dict()
@@ -198,13 +192,13 @@ def hamerly_both_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
 
         # -----------------------  Update Assignment -----------------------
         #   update center to center bounds
-        for idx, centroid in enumerate(centroids):
+        for label, centroid in enumerate(centroids):
             saved_dist_comp_theory -= k * (k-1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
             saved_dist_comp_practice -= k * k
             all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(idx)
+            all_dist_centroid = all_dist_centroid.drop(label)
             new_bound = all_dist_centroid.min()
-            center_bound[idx] = 1/2 * new_bound
+            center_bound[label] = 1/2 * new_bound
 
         for point in data:
             label = assignment[point]
@@ -302,7 +296,6 @@ def hamerly_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
     """
     # initialise
     centroids = initial_centroids
-    print(f'Hybrid Ptolemy: {centroids}')
     assignment = dict.fromkeys(data, -1)
     lower_bounds_point = dict()
     center_bound = dict()
@@ -352,13 +345,13 @@ def hamerly_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
 
         # -----------------------  Update Assignment -----------------------
         #   update center to center bounds
-        for idx, centroid in enumerate(centroids):
+        for label, centroid in enumerate(centroids):
             saved_dist_comp_theory -= k * (k-1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
             saved_dist_comp_practice -= k * k
             all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(idx)
+            all_dist_centroid = all_dist_centroid.drop(label)
             new_bound = all_dist_centroid.min()
-            center_bound[idx] = 1/2 * new_bound
+            center_bound[label] = 1/2 * new_bound
 
         for point in data:
             label = assignment[point]
@@ -430,13 +423,13 @@ def hamerly_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
 def elkan_algorithm(data, k, initial_centroids):
     # Initialisation
     centroids = initial_centroids
-    print(f'Elkan: {centroids}')
     assignment = dict()
     # the points are the keys and each value is a list of lower bounds with length k
     lower_bounds = dict()
     upper_bound = dict()
     r = dict.fromkeys(data, True)
     center_bound = dict()
+    center_center_dist = dict()
     saved_dist_comp_theory = 0
     saved_dist_comp_practice = 0
 
@@ -459,13 +452,15 @@ def elkan_algorithm(data, k, initial_centroids):
         if iteration_count > 2:
             not_converged = False
         # 1
-        for idx, centroid in enumerate(centroids):
+        for label, centroid in enumerate(centroids):
             saved_dist_comp_theory -= k * (k-1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
             saved_dist_comp_practice -= k * k
             all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(idx)
+            for second_label in all_dist_centroid.index:
+                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
+            all_dist_centroid = all_dist_centroid.drop(label)
             new_bound = all_dist_centroid.min()
-            center_bound[idx] = 1/2 * new_bound
+            center_bound[label] = 1/2 * new_bound
 
         for point in data:
             label = assignment[point]
@@ -477,35 +472,38 @@ def elkan_algorithm(data, k, initial_centroids):
             # 3
             else:
                 for other_label in [lab for lab in range(k) if lab != label]:
-                    # todo: dist(c_f(x), c_i) precomputen und abrufen, statt neu zu berechnen
-                    saved_dist_comp_practice -= 1
                     if upper_bound[point] > lower_bounds[point][other_label] and \
-                            upper_bound[point] > 1/2 * dist(centroids[label], centroids[other_label]):
+                            upper_bound[point] > 1/2 * center_center_dist[(label, other_label)]:
                         # 3a
                         if r[point]:
-                            saved_dist_comp_theory -= 1
-                            saved_dist_comp_practice -= 1
                             distance = dist(point, centroids[label])
+                            upper_bound[point] = distance
                             lower_bounds[point][label] = distance
-                            # todo: mit der folgenden auskommentierten Zeile hat es nicht funktioniert. Wieso?
-                            # r[point] = False
+                            r[point] = False
                         else:
                             distance = upper_bound[point]
+
+                            # saved_dist_comp so richtig berechnet ???
+                            saved_dist_comp_theory += 1
+                            saved_dist_comp_practice += 1
                             if distance != dist(point, centroids[label]):
+                                print('Housten, we have a problem')
                                 raise RuntimeError('Upper bound was not equal to distance')
 
                         # 3b
-                        saved_dist_comp_practice -= 1
                         if distance > lower_bounds[point][other_label] or \
-                                distance > 1/2 * dist(centroids[label], centroids[other_label]):
-                            saved_dist_comp_theory -= 1
-                            saved_dist_comp_practice -= 1
+                                distance > 1/2 * center_center_dist[(label, other_label)]:
                             distance_other_center = dist(point, centroids[other_label])
                             lower_bounds[point][other_label] = distance_other_center
                             if distance_other_center < distance:
                                 assignment[point] = other_label
                                 label = other_label  # !!!!!!!!
+                                upper_bound[point] = distance_other_center
                                 not_converged = True
+                        else:
+                            # saved_dist_comp so richtig berechnet ???
+                            saved_dist_comp_theory += 1
+                            saved_dist_comp_practice += 1
 
         # 4 and 7
         moved_distance = update_centroids(centroids, assignment)
@@ -523,6 +521,7 @@ def elkan_algorithm(data, k, initial_centroids):
     return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
 
 
+# todo: das mal vernünftig machen, mit der upper_bound_ptolemy: Wann die berechnet wird, wie die mitgenommen wird usw.
 def elkan_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
     """
 
@@ -533,12 +532,13 @@ def elkan_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
     """
     # Initialisation
     centroids = initial_centroids
-    print(f'Elkan Ptolemy Hybrid: {centroids}')
     assignment = dict()
+    upper_bound_ptolemy = dict()
     # the points are the keys and each value is a list of lower bounds with length k
     lower_bounds = dict()
     r = dict.fromkeys(data, True)
     center_bound = dict()
+    center_center_dist = dict()
     saved_dist_comp_theory = 0
     saved_dist_comp_practice = 0
 
@@ -549,21 +549,24 @@ def elkan_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
     dimension = len(data[0])
     zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
     zero_2 = tuple([0 for dim in range(dimension)])
-    point_to_zero_1 = update_points_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
+    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory,
                                                        saved_dist_comp_practice)
-    point_to_zero_2 = update_points_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
+    point_to_zero_2 = update_points_to_pivot_distances(data, zero_2, saved_dist_comp_theory,
                                                        saved_dist_comp_practice)
 
+    # Initialise bounds
     for point in data:
         all_dist_this_point = all_dist(dataset=centroids, query=point)
         new_label = all_dist_this_point.argmin()
         assignment[point] = new_label
         distances = list(all_dist_this_point)
         lower_bounds[point] = distances
+        min_dist = all_dist_this_point[new_label]
+        upper_bound_ptolemy[point] = min_dist
         saved_dist_comp_theory -= k
         saved_dist_comp_practice -= k
 
-    # new (old_center_to_zeros distance
+    # new (old_center_to_zeros distance)
     # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
     old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
                                                               saved_dist_comp_practice)
@@ -586,49 +589,59 @@ def elkan_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
                                                                   saved_dist_comp_practice)
 
         # 1
-        for idx, centroid in enumerate(centroids):
+        for label, centroid in enumerate(centroids):
             saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
             saved_dist_comp_practice -= k * k
             all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(idx)
+            for second_label in all_dist_centroid.index:
+                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
+            all_dist_centroid = all_dist_centroid.drop(label)
             new_bound = all_dist_centroid.min()
-            center_bound[idx] = 1 / 2 * new_bound
+            center_bound[label] = 1 / 2 * new_bound
 
         for point in data:
             label = assignment[point]
             # 2
-            upper_bound_ptolemy_1 = (dist(point, centroids[label]) * new_centers_to_zero_1[label]
+            # ptolemy upper bound
+            # upper_bound_ptolemy_1 = (dist(point, centroids[label]) * new_centers_to_zero_1[label]
+            #                          + point_to_zero_1[point] * moved_distance[label]) \
+            #                          / old_centers_to_zero_1[label]
+            # upper_bound_ptolemy_2 = (dist(point, centroids[label]) * new_centers_to_zero_2[label]
+            #                          + point_to_zero_2[point] * moved_distance[label]) \
+            #                          / old_centers_to_zero_2[label]
+            # saved_dist_comp_practice -= 2
+            upper_bound_ptolemy_1 = (upper_bound_ptolemy[point] * new_centers_to_zero_1[label]
                                      + point_to_zero_1[point] * moved_distance[label]) \
                                      / old_centers_to_zero_1[label]
-            upper_bound_ptolemy_2 = (dist(point, centroids[label]) * new_centers_to_zero_2[label]
+            upper_bound_ptolemy_2 = (upper_bound_ptolemy[point] * new_centers_to_zero_2[label]
                                      + point_to_zero_2[point] * moved_distance[label]) \
                                      / old_centers_to_zero_2[label]
-            upper_bound_ptolemy = min(upper_bound_ptolemy_1, upper_bound_ptolemy_2)
-            saved_dist_comp_practice -= 2
-            if upper_bound_ptolemy <= center_bound[label]:
+            upper_bound_ptolemy_int = min(upper_bound_ptolemy_1, upper_bound_ptolemy_2)
+            upper_bound_ptolemy[point] = upper_bound_ptolemy_int
+            if upper_bound_ptolemy_int <= center_bound[label]:
                 saved_dist_comp_theory += k
                 saved_dist_comp_practice += k
                 pass
             # 3
             else:
                 for other_label in [lab for lab in range(k) if lab != label]:
-                    # todo: dist(c_f(x), c_i) precomputen und abrufen, statt neu zu berechnen
-                    saved_dist_comp_practice -= 1
-                    if upper_bound_ptolemy > lower_bounds[point][other_label] and \
-                            upper_bound_ptolemy > 1 / 2 * dist(centroids[label], centroids[other_label]):
+                    if upper_bound_ptolemy_int > lower_bounds[point][other_label] and \
+                            upper_bound_ptolemy_int > 1 / 2 * center_center_dist[(label, other_label)]:
                         # 3a
                         if r[point]:
                             saved_dist_comp_theory -= 1
                             saved_dist_comp_practice -= 1
                             distance = dist(point, centroids[label])
+                            # die ptolomäische Variante profitiert noch nicht davon, dass man die upper bound hier
+                            # aktualisieren könnte
+                            # upper_bound[point] = distance # ???
                             lower_bounds[point][label] = distance
                             # todo: mit der folgenden auskommentierten Zeile hat es nicht funktioniert. Wieso?
                             # r[point] = False
 
                         # 3b
-                        saved_dist_comp_practice -= 1
                         if distance > lower_bounds[point][other_label] or \
-                                distance > 1 / 2 * dist(centroids[label], centroids[other_label]):
+                                distance > 1 / 2 * center_center_dist[(label, other_label)]:
                             saved_dist_comp_theory -= 1
                             saved_dist_comp_practice -= 1
                             distance_other_center = dist(point, centroids[other_label])
@@ -636,6 +649,7 @@ def elkan_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
                             if distance_other_center < distance:
                                 assignment[point] = other_label
                                 label = other_label  # !!!!!!!!
+                                # upper_bound[point] = distance_other_center # ???
                                 not_converged = True
 
         # new (old_center_to_zero distances)

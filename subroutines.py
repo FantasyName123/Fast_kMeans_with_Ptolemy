@@ -37,18 +37,20 @@ def update_centroids(centroids, assignment):
     labels = range(len(centroids))
     data = list(assignment.keys())
     moved_distance = list()
+    empty_group_count = 0
     for label in labels:
         assigned_points = [point for point in data if assignment.get(point) == label]
         if len(assigned_points) == 0:
             # new_centroid = data[random.randint(0, len(data) - 1)]
-            new_centroid = data[0]
+            new_centroid = data[empty_group_count]
             moved_distance.append(dist(centroids[label], new_centroid))
             centroids[label] = new_centroid
+            empty_group_count += 1
             continue
         arr = np.array(assigned_points)
         new_centroid = arr.sum(axis=0) / len(assigned_points)
         moved_distance.append(dist(centroids[label], new_centroid))
-        centroids[label] = new_centroid
+        centroids[label] = tuple(new_centroid)
 
     moved_distance = pd.Series(moved_distance)
     return moved_distance

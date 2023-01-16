@@ -1,9 +1,19 @@
 import matplotlib.pyplot as plt
 import time
 
+from scripts import *
 from kMeansVariants import *
 from datasets import *
 from subroutines import initialise_centroids
+
+# todo: Elkan ist schneller als Hamerly, obwohl Elkan weniger Distanzberechnung einspart. Das sollte eigentlich nicht
+#  sein, denn der Overhead bei Elkan ist größer. Untersuchen!
+# Eine Idee habe ich schon:
+#   Manchmal werden Distanzen vektorisiert berechnet und manchmal einzelne in einer Schleife. Diese beiden Arten von
+# Distanzberechnungen sind natürlich nicht miteinander vergleichbar. Das kann dazu führen, dass ein Algorithmus mit mehr
+# Distanzberechnungen schneller ist, weil er die meisten Distanzberechnungen vektorisiert durchführt.
+#   Man könnte natürlich auch sagen, dass es eine positive Eigenschaft eines Algorithmus ist, wenn dieser viele
+# vektorisierte Distanzberechnungen zulässt.
 
 
 if __name__ == '__main__':
@@ -11,57 +21,46 @@ if __name__ == '__main__':
     # bisher habe ich nur die oberen Schranken mit Ptolemy erstellt
 
     k = 10
-    data = create_clustered_data(6000, dimension=6, clusters=k)
+    data = create_clustered_data(10000, dimension=16, clusters=k)
 
     initial_centroids = initialise_centroids(k=k, data=data)
-    # todo: Die Berechnung des jeweiligen Zielfunktionswertes geht aktuell mit in die Zeitberechnung ein
-    start = time.time()
-    centroids, assignment, iterations_lloyd, assignment_1_lloyd = \
-        lloyd_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
-    zielfunktionswert_lloyd = calculate_zielfunktion(centroids, assignment) / len(assignment)
 
-    step = time.time()
-    centroids, assignment, iterations_elkan, saved_dist_comp_theory, saved_dist_comp_practice =\
-        elkan_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
-    zielfunktionswert_elkan = calculate_zielfunktion(centroids, assignment) / len(assignment)
+    iterations_lloyd, zielfunktionswert_lloyd, runtime_lloyd, \
+        saved_dist_comp_theory_lloyd, saved_dist_comp_practice_lloyd = \
+        single_algorithm(lloyd_algorithm, data=data, k=k, initial_centroids=initial_centroids.copy())
 
-    step2 = time.time()
-    centroids, assignment, iterations_hamerly_pto, saved_dist_comp_theory_pto, saved_dist_comp_practice_pto =\
-        hamerly_both_ptolemy_upper_bound_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
-    zielfunktionswert_hamerly_pto = calculate_zielfunktion(centroids, assignment) / len(assignment)
+    iterations_elkan, zielfunktionswert_elkan, runtime_elkan,\
+        saved_dist_comp_theory_elkan, saved_dist_comp_practice_elkan = \
+        single_algorithm(elkan_algorithm, data=data, k=k, initial_centroids=initial_centroids.copy())
 
-    step3 = time.time()
-    centroids, assignment, iterations_hybrid, saved_dist_comp_theory_hybrid, saved_dist_comp_practice_hybrid =\
-        elkan_lower_ptolemy_upper_bound_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
-    zielfunktionswert_hybrid = calculate_zielfunktion(centroids, assignment) / len(assignment)
-    end = time.time()
+    iterations_elkan_pto, zielfunktionswert_elkan_pto, runtime_elkan_pto,\
+        saved_dist_comp_theory_elkan_pto, saved_dist_comp_practice_elkan_pto = \
+        single_algorithm(elkan_lower_ptolemy_upper_bound_algorithm, data=data, k=k,
+                         initial_centroids=initial_centroids.copy())
 
-    print(f'Lloyd Algorithm needed {round(step - start, 4)} seconds')
-    print(f'Elkan Algorithm needed {round(step2 - step, 4)} seconds')
-    print(f'Hamerly_Pto Algorithm needed {round(step3 - step2, 4)} seconds')
-    print(f'Hybrid Algorithm needed {round(end - step3, 4)} seconds')
+    # start = time.time()
+    # centroids, assignment, iterations_lloyd, saved_dist_comp_theory_zero, saved_dist_comp_practice_zero = \
+    #     lloyd_algorithm(data=data, k=k, initial_centroids=initial_centroids.copy())
+    # zielfunktionswert_lloyd = calculate_zielfunktion(centroids, assignment) / len(assignment)
+
+    print(f'Lloyd Algorithm needed {runtime_lloyd} seconds')
+    print(f'Elkan Algorithm needed {runtime_elkan} seconds')
+    print(f'Elkan_Ptolemy Algorithm needed {runtime_elkan_pto} seconds')
 
     print('Saved distance computations with Elkan:')
-    print(f'In Theory: {saved_dist_comp_theory}')
-    print(f'In Practice: {saved_dist_comp_practice}')
-    print('Saved distance computations with Hamerly_Pto:')
-    print(f'In Theory: {saved_dist_comp_theory_pto}')
-    print(f'In Practice: {saved_dist_comp_practice_pto}')
-    print('Saved distance computations with Hybrid:')
-    print(f'In Theory: {saved_dist_comp_theory_hybrid}')
-    print(f'In Practice: {saved_dist_comp_practice_hybrid}')
+    print(f'In Theory: {saved_dist_comp_theory_elkan}')
+    print(f'In Practice: {saved_dist_comp_practice_elkan}')
+    print('Saved distance computations with Elkan_Ptolemy:')
+    print(f'In Theory: {saved_dist_comp_theory_elkan_pto}')
+    print(f'In Practice: {saved_dist_comp_practice_elkan_pto}')
 
     # Zielfunktionswert
-    if zielfunktionswert_elkan != zielfunktionswert_hybrid:
-        print('Warning! The zielfunktionswerte were different...')
     print(f'Lloyd: {zielfunktionswert_lloyd}')
     print(f'Elkan: {zielfunktionswert_elkan}')
-    print(f'Hamerly_Pto: {zielfunktionswert_hamerly_pto}')
-    print(f'Hybrid: {zielfunktionswert_hybrid}')
+    print(f'Elkan Ptolemy: {zielfunktionswert_elkan_pto}')
     print(f'Iterations Lloyd: {iterations_lloyd}')
-    print(f'Iterations Hamelry: {iterations_elkan}')
-    print(f'Iterations Hamerly_Pto: {iterations_hamerly_pto}')
-    print(f'Iterations Hybrid: {iterations_hybrid}')
+    print(f'Iterations Elkan: {iterations_elkan}')
+    print(f'Iterations Elkan Ptolemy: {iterations_elkan_pto}')
 
     # # For Debugging
     # same = (assignment_1_lloyd == assignment_1_elkan)
