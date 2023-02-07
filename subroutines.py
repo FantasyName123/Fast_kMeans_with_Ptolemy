@@ -7,7 +7,7 @@ from helpers import *
 
 def initialise_centroids(data, k):
     """
-    Creates k points uniformly distributed in the [0, 120]^d cube, where d is the dimension of the points in data. Uses
+    Creates k points uniformly distributed in the (([0, 120]^d cube)), where d is the dimension of the points in data. Uses
     a fixed seed, to produce reproducible results.
 
     :param data: Should be a non-empty list of tuples. Is used to determine the dimension to use.
@@ -17,9 +17,23 @@ def initialise_centroids(data, k):
     dimension = len(data[0])
     np.random.seed(0)
     centroids = np.random.rand(k, dimension)
-    centroids *= 120  # die Daten liegen nicht ganz in einem 100^n Würfel
+    centroids *= 12000  # die Daten liegen nicht ganz in einem 100^n Würfel
     centroids = [tuple(row) for row in centroids]
     return centroids
+
+
+def initialise_centroids_from_dataset(data, k, seed=0):
+    """
+    Initialise Centroids by choosing k points from the dataset at random.
+
+    :param data: Should be a non-empty list of tuples. The centroids are drawn from that pool.
+    :param k: Number of points to be created
+    :param seed: The seed used for the random selection
+    :return: A list containing k tuples of the same dimension as in data.
+    """
+    random.seed(seed)
+    return random.sample(population=data, k=k)
+
 
 
 def update_centroids(centroids, assignment):
