@@ -1197,3 +1197,92 @@ def elkan_style_triangle_ptolemy_combined_algorithm_single(data, k, initial_cent
     return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
 
 
+def elkan_algorithm_without_counting(data, k, initial_centroids):
+    # Initialisation
+    centroids = initial_centroids
+    assignment = dict()
+    # the points are the keys and each value is a list of lower bounds with length k
+    lower_bounds = dict()
+    upper_bound = dict()
+    r = dict.fromkeys(data, True)
+    center_bound = dict()
+    center_center_dist = dict()
+
+    # first assignment and get first bounds tight
+    for point in data:
+        all_dist_this_point = all_dist(dataset=centroids, query=point)
+        new_label = all_dist_this_point.argmin()
+        assignment[point] = new_label
+        distances = list(all_dist_this_point)
+        lower_bounds[point] = distances
+        min_dist = all_dist_this_point[new_label]
+        upper_bound[point] = min_dist
+
+    iteration_count = 0
+    not_converged = True
+    while not_converged:
+        iteration_count += 1
+        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
+        if iteration_count > 2:
+            not_converged = False
+        # 1
+        for label, centroid in enumerate(centroids):
+            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
+            for second_label in all_dist_centroid.index:
+                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
+            all_dist_centroid = all_dist_centroid.drop(label)
+            new_bound = all_dist_centroid.min()
+            center_bound[label] = 1/2 * new_bound
+
+        for point in data:
+            label = assignment[point]
+            # 2
+            if upper_bound[point] < 0.9999 * dist(point, centroids[label]):
+                print('Oh noo!')
+
+            if upper_bound[point] <= center_bound[label]:
+                pass
+            # 3
+            else:
+                for other_label in [lab for lab in range(k) if lab != label]:
+                    if upper_bound[point] > lower_bounds[point][other_label] and \
+                            upper_bound[point] > 1/2 * center_center_dist[(label, other_label)]:
+                        # 3a
+                        if r[point]:
+                            distance = dist(point, centroids[label])
+                            upper_bound[point] = distance
+                            lower_bounds[point][label] = distance
+                            r[point] = False
+                        else:
+                            distance = upper_bound[point]
+                            if distance != dist(point, centroids[label]):
+                                print('Housten, we have a problem')
+                                raise RuntimeError('Upper bound was not equal to distance')
+
+                        # 3b
+                        if distance > lower_bounds[point][other_label] or \
+                                distance > 1/2 * center_center_dist[(label, other_label)]:
+                            distance_other_center = dist(point, centroids[other_label])
+                            lower_bounds[point][other_label] = distance_other_center
+                            if distance_other_center < distance:
+                                assignment[point] = other_label
+                                label = other_label  # !!!!!!!!
+                                upper_bound[point] = distance_other_center
+                                not_converged = True
+
+        # 4 and 7
+        moved_distance = update_centroids(centroids, assignment)
+
+        for point in data:
+            # 5
+            # todo: max(0, ...) hinzufügen
+            lower_bounds[point] = list( np.array(lower_bounds[point]) - np.array(moved_distance))
+            # # veraltete, nicht vektorisierte Variante
+            # for label in range(k):
+            #     lower_bounds[point][label] = max(0, lower_bounds[point][label] - moved_distance[label])
+            # 6
+            upper_bound[point] += moved_distance[assignment[point]]
+            r[point] = True
+
+    return centroids, assignment, iteration_count, 1, 1
+

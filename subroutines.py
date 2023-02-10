@@ -35,7 +35,6 @@ def initialise_centroids_from_dataset(data, k, seed=0):
     return random.sample(population=data, k=k)
 
 
-
 def update_centroids(centroids, assignment):
     """
     For each centroid, takes all assigned points and computes their center of mass. This point is the new centroid and

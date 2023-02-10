@@ -68,5 +68,10 @@ def get_birch_2_1(url_string='/Users/louisborchert/Downloads/b2-random-txt/b2-ra
     return lines
 
 
-
+def get_test_dataset():
+    test_data = [(1, 1), (1, 3), (1, 5), (2, 1), (2, 4),
+                 (4, 4), (4, 5), (4, 6), (5, 5), (5, 6),
+                 (10, 9), (11, 12), (11, 14), (12, 15)]
+    test_data = np.array(test_data)
+    return test_data
 

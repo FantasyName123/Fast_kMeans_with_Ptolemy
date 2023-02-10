@@ -22,17 +22,18 @@ def all_dist(dataset, query, return_as='Series'):
 
 
 def test_sklearn(data, k):
+    km = KMeans(n_clusters=k, algorithm='elkan')
     start = time.time()
-    km = KMeans(n_clusters=k, algorithm='elkan').fit(data)
+    result = km.fit(data)
     end = time.time()
     print(f'sklearn needed {round(end - start, 6)} seconds')
     assignment = dict()
-    lables = km.labels_
+    lables = result.labels_
     for idx in range(len(data)):
         data_point = data[idx]
         assignment[data_point] = lables[idx]
 
-    return assignment, km.cluster_centers_
+    return assignment, result.cluster_centers_
 
 
 def into_2d_array(data):

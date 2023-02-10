@@ -32,37 +32,47 @@ if __name__ == '__main__':
     # data = create_clustered_data(40000, dimension=3, clusters=k)
     # data = create_dataset_uniform(5000, dimension=6)
     # data = get_birch_1()
-    data = get_birch_2_1('/Users/louisborchert/Downloads/b2-random-txt/b2-random-4.txt')
+    data = get_birch_2_1('/Users/louisborchert/Downloads/b2-random-txt/b2-random-60.txt')
     data_matrix = np.array(data)
     initial_centroids = initialise_centroids_from_dataset(data=data, k=k, seed=21)
     initial_centroids_matrix = np.array(initial_centroids)
 
-    centroids, clusters = lloyd_matrix(data_matrix, np.copy(initial_centroids_matrix))
+    # # for testing purposes
+    # data_matrix = get_test_dataset()
+    # initial_centroids_matrix = np.array([(0, 0), (2, 2), (5, 5)])
 
+    start = time.time()
+    centroids, clusters = lloyd_matrix(data_matrix, np.copy(initial_centroids_matrix))
+    step = time.time()
     centroids_test, clusters_test = elkan_matrix(data_matrix, np.copy(initial_centroids_matrix))
+    end = time.time()
+
+    print(f'Lloyd needed {round(step- start, 6)} seconds')
+    print(f'Elkan needed {round(end - step, 6)} seconds')
 
     print(f'Centroids Test: {np.allclose(centroids, centroids_test)}')
-    print(f'Clusters Test: {np.allclose(clusters, centroids_test)}')
+    print(f'Clusters Test: {np.allclose(clusters, clusters_test)}')
 
-    coordinates = data_matrix.transpose()
-    plt.scatter(x=coordinates[0], y=coordinates[1], c=list(clusters))
-    for centroid in centroids:
-        plt.plot(centroid[0], centroid[1], marker='^')
-    plt.show()
+    # # Visualisation matrix form
+    # coordinates = data_matrix.transpose()
+    # plt.scatter(x=coordinates[0], y=coordinates[1], c=list(clusters))
+    # for centroid in centroids:
+    #     plt.plot(centroid[0], centroid[1], marker='^')
+    # plt.show()
 
 
 
+    if True:
+        # alg_list = [lloyd_algorithm, elkan_algorithm_without_counting]
+        # names_list = ['Lloyd old', 'Elkan old']
+        #
+        # run(data, k, initial_centroids, alg_list, names_list)
 
-    alg_list = [lloyd_algorithm, lloyd_algorithm_2]
-    names_list = ['lloyd', 'Lloyd_Speedup_Try']
+        assignment_sklearn, centroids_sklearn = test_sklearn(data, k)
 
-    run(data, k, initial_centroids, alg_list, names_list)
-
-    assignment_sklearn, centroids_sklearn = test_sklearn(data, k)
-
-    # iterations_lloyd, zielfunktionswert_lloyd, runtime_lloyd, \
-    #     saved_dist_comp_theory_lloyd, saved_dist_comp_practice_lloyd = \
-    #     single_algorithm(lloyd_algorithm, data=data, k=k, initial_centroids=initial_centroids.copy())
+        # iterations_lloyd, zielfunktionswert_lloyd, runtime_lloyd, \
+        #     saved_dist_comp_theory_lloyd, saved_dist_comp_practice_lloyd = \
+        #     single_algorithm(lloyd_algorithm, data=data, k=k, initial_centroids=initial_centroids.copy())
 
     if False:
         iterations_elkan, zielfunktionswert_elkan, runtime_elkan,\
@@ -122,11 +132,10 @@ if __name__ == '__main__':
     #         first_difference = point
     #     i += 1
 
-    # Visualisation
-    # centroids, assignment, iterations, zero, one = elkan_algorithm(data, k, initial_centroids.copy())
-    coordinates = np.array(list(assignment_sklearn.keys())).transpose()
-    plt.scatter(x=coordinates[0], y=coordinates[1], c=list(assignment_sklearn.values()))
-    for centroid in centroids_sklearn:
-        plt.plot(centroid[0], centroid[1], marker='^')
-    plt.show()
+    # # Visualisation
+    # coordinates = np.array(list(assignment_sklearn.keys())).transpose()
+    # plt.scatter(x=coordinates[0], y=coordinates[1], c=list(assignment_sklearn.values()))
+    # for centroid in centroids_sklearn:
+    #     plt.plot(centroid[0], centroid[1], marker='^')
+    # plt.show()
 
