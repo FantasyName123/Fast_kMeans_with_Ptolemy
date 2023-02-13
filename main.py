@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # data = create_clustered_data(40000, dimension=3, clusters=k)
     # data = create_dataset_uniform(5000, dimension=6)
     # data = get_birch_1()
-    data = get_birch_2_1('/Users/louisborchert/Downloads/b2-random-txt/b2-random-60.txt')
+    data = get_birch_2_1('/Users/louisborchert/Downloads/b2-random-txt/b2-random-98.txt')
     data_matrix = np.array(data)
     initial_centroids = initialise_centroids_from_dataset(data=data, k=k, seed=21)
     initial_centroids_matrix = np.array(initial_centroids)
@@ -44,14 +44,19 @@ if __name__ == '__main__':
     start = time.time()
     centroids, clusters = lloyd_matrix(data_matrix, np.copy(initial_centroids_matrix))
     step = time.time()
-    centroids_test, clusters_test = elkan_matrix(data_matrix, np.copy(initial_centroids_matrix))
+    centroids_elkan, clusters_elkan = elkan_matrix_counter(data_matrix, np.copy(initial_centroids_matrix))
+    step2 = time.time()
+    centroids_elkan_pto, clusters_elkan_pto = elkan_matrix_full_ptolemy_counter(data_matrix, np.copy(initial_centroids_matrix))
     end = time.time()
 
     print(f'Lloyd needed {round(step- start, 6)} seconds')
-    print(f'Elkan needed {round(end - step, 6)} seconds')
+    print(f'Elkan needed {round(step2 - step, 6)} seconds')
+    print(f'Elkan Pto needed: {round(end - step2, 6)} seconds')
 
-    print(f'Centroids Test: {np.allclose(centroids, centroids_test)}')
-    print(f'Clusters Test: {np.allclose(clusters, clusters_test)}')
+    print(f'Centroids Test: {np.allclose(centroids, centroids_elkan)}')
+    print(f'Clusters Test: {np.allclose(clusters, clusters_elkan)}')
+    print(f'Centroids Test Pto: {np.allclose(centroids, centroids_elkan_pto)}')
+    print(f'Clusters Test Pto: {np.allclose(clusters, clusters_elkan_pto)}')
 
     # # Visualisation matrix form
     # coordinates = data_matrix.transpose()

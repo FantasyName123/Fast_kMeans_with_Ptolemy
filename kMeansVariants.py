@@ -921,9 +921,7 @@ def elkan_style_ptolemy_both_bounds_algorithm_single(data, k, initial_centroids)
     saved_dist_comp_practice = 0
     pruning_only = 0
 
-    # new
-
-    # new (point_to_center distances)
+    # new (point_to_zero distances)
     dimension = len(data[0])
     zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
     point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory,
