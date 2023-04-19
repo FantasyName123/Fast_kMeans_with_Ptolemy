@@ -1,16 +1,33 @@
-from kMeansVariants import *
-from subroutines import calculate_zielfunktion
+from kMeansVariants_old import *
+from subroutines import evaluate_objective_function
 
 import time
 
+# todo: Methoden mit/ohne Docstring
+#  single_algorithm: Ohne
+#  run: Da muss ich nochmal ran
+
+# todo: April!! Die Methode single_algorithm auf die neuen vektorisierten kMeans Algorithmen anwenden.
+
 
 def single_algorithm(algorithm, data, k, initial_centroids):
+    """
+    This is kind of a wrapper around a function call of any algorithm in kMeansVariants old!!! It calls the given method
+    and, in addition, stops the time the algorithm needed and computes the objective function relative to the amount of
+    data points.
+
+    :param algorithm:
+    :param data:
+    :param k:
+    :param initial_centroids:
+    :return:
+    """
     start = time.time()
     centroids, assignment, iterations, saved_dist_comp_theory, saved_dist_comp_practice = \
         algorithm(data, k, initial_centroids)
     end = time.time()
     runtime = round(end - start, 4)
-    zielfunktionswert = calculate_zielfunktion(centroids, assignment) / len(assignment)
+    zielfunktionswert = evaluate_objective_function(centroids, assignment) / len(assignment)
 
     return iterations, zielfunktionswert, runtime, saved_dist_comp_theory, saved_dist_comp_practice
 
@@ -24,7 +41,7 @@ def run(data, k, initial_centroids, alg_list, names_list=['Elkan', 'Ptolemy_Uppe
     :param k: k
     :param initial_centroids: initial centroids
     :param alg_list: a list of functions that give the same output as the Lloyd algorithm.
-    :param names_list: a list of names of the algorithms from algorithm list. The lengths of both lists must match.
+    :param names_list: a list of names for the algorithms the algorithm list. The lengths of both lists must match.
     :return: None. Could be changed to runtime and/or saved_dist_comp.
     """
     if len(alg_list) != len(names_list):
@@ -56,9 +73,3 @@ def run(data, k, initial_centroids, alg_list, names_list=['Elkan', 'Ptolemy_Uppe
         print(f'In Theory:   {saved_dc_theory_dict[name]}')
         print(f'In Practice: {saved_dc_practice_dict[name]}')
         print(f'Difference: {saved_dc_theory_dict[name] - saved_dc_practice_dict[name]}')
-
-
-
-
-def evaluation():
-    pass

@@ -1,1286 +1,619 @@
 import numpy as np
-from math import dist
 
 from subroutines import *
 from helpers import *
 
 
-# todo: numpy.float64 vs float problem
-
-def lloyd_algorithm(data, k, initial_centroids):
-    # initialise
-    centroids = initial_centroids
-    assignment = dict.fromkeys(data, -1)
-
-    iteration_count = 0
-    assignment_updated = True
-    while assignment_updated:
-        iteration_count += 1
-
-        # update_assignment
-        assignment_updated = False
-        for point in data:
-            distances = all_dist(dataset=centroids, query=point)
-            new_label = distances.argmin()
-            if assignment[point] != new_label:
-                assignment[point] = new_label
-                assignment_updated = True
-
-        # update_center
-        update_centroids(centroids, assignment)
-
-    return centroids, assignment, iteration_count, 0, 0
-
-
-def lloyd_algorithm_2(data, k, initial_centroids):
+def lloyd(data, initial_centroids):
     """
-    assignment as a list of labels, with the same length as the data
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
+    The classical Lloyd algorithm for the kMeans clustering problem.
+
+        This code is vectorized. There are implementations where the algorithm terminates, when the movement of the
+    centroids is within a given tolerance. This is not the case here. In this implementation, the algorithm is designed
+    to stop only if all the centroids stay fixed.
+
+    :param data: 2-dimensional numpy array.
+    :param initial_centroids: 2-dimensional numpy array. The initial centroids are passed as an argument rather than
+        produced internally, to create reproducibility and comparability with the other algorithms.
+    :return: Centroids, clusters. Centroids as a 2-dimensional numpy array. Clusters is an array of integers 0,...,k-1.
+        The first integer indicates to which centroids the first data point is associated, the second integer indicates to
+        which centroid the second data point is associated, and so on. Where the entry 0 means that a data point is
+        associated to the first centroid in 'centroids', the entry 1 means that a data point is associated to the second
+        centroid in 'centroids', and so on.
     """
     # initialise
+    k = len(initial_centroids)
+    n = len(data)
     centroids = initial_centroids
-    assignment = [-1] * len(data)
-
     iteration_count = 0
-    assignment_updated = True
-    while assignment_updated:
+    converged = False
+
+    while not converged:
         iteration_count += 1
+        # assign each point to the nearest centroid
+        distances = np.array([np.linalg.norm(data - centroids[i], axis=1) for i in range(k)])
+        clusters = np.argmin(distances, axis=0)
 
-        # update assignment
-        assignment_updated = False
-        for idx, point in enumerate(data):
-            distances = all_dist(dataset=centroids, query=point)
-            new_label = distances.argmin()
-            if assignment[idx] != new_label:
-                assignment[idx] = new_label
-                assignment_updated = True
+        # update centroids
+        new_centroids = np.copy(centroids)
+        for i in range(k):
+            if np.sum(clusters == i) > 0:
+                new_centroids[i] = np.mean(data[clusters == i], axis=0)
 
-        # update center
-        # update_centroids(centroids, assignment)
-        labels = range(len(centroids))
-        empty_group_count = 0
-        for label in labels:
-            assigned_points = [data[idx] for idx in range(len(data)) if assignment[idx] == label]
-            if len(assigned_points) == 0:
-                new_centroid = data[empty_group_count]
-                centroids[label] = new_centroid
-                empty_group_count += 1
-                continue
-            arr = np.array(assigned_points)
-            new_centroid = arr.sum(axis=0) / len(assigned_points)
-            centroids[label] = tuple(new_centroid)
-
-    # convert assignment from list to dict to be compatible with other methods
-    assignment_dict = dict()
-    for idx, point in enumerate(data):
-        assignment_dict[point] = assignment[idx]
-
-    return centroids, assignment_dict, iteration_count, 0, 0
+        # check for convergence
+        if np.array_equal(centroids, new_centroids):
+            converged = True
+        else:
+            centroids = new_centroids
+    print(f'Iterations {iteration_count}')
+    print(f'Lloyd Dist_Comp {n * k * iteration_count}')
+    return centroids, clusters
 
 
-def lloyd_algorithm_3(data, k, initial_centroids):
+def elkan(data, initial_centroids):
     """
-    The label of each point is the last entry in the point's vector
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
+    The classical Elkan algorithm, using the triangle inequality to achieve speedups compared with the Lloyd algorithm.
+
+        This code is vectorized. There are implementations where the algorithm terminates, when the movement of the
+    centroids is within a given tolerance. This is not the case here. In this implementation, the algorithm is designed
+    to stop only if all the centroids stay fixed.
+
+    :param data: 2-dimensional numpy array.
+    :param initial_centroids: 2-dimensional numpy array. The initial centroids are passed as an argument rather than
+        produced internally, to create reproducibility and comparability with the other algorithms.
+    :return: Centroids, clusters. Centroids as a 2-dimensional numpy array. Clusters is an array of integers 0,...,k-1.
+        The first integer indicates to which centroids the first data point is associated, the second integer indicates to
+        which centroid the second data point is associated, and so on. Where the entry 0 means that a data point is
+        associated to the first centroid in 'centroids', the entry 1 means that a data point is associated to the second
+        centroid in 'centroids', and so on.
     """
     # initialise
+    k = len(initial_centroids)
+    n = len(data)
+    indices = np.array(range(n))
     centroids = initial_centroids
-    # todo: ab hier weiter
-    for point in data:
-        pass
-
-
-
-def hamerly_algorithm(data, k, initial_centroids):
-    # initialise
-    centroids = initial_centroids
-    assignment = dict.fromkeys(data, -1)
-    upper_bounds_point = dict()
-    lower_bounds_point = dict()
-    center_bound = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-
-    # die bounds müssen erst einmal initialsiert werden, damit man in den ersten Durchlauf starten kann
-    for point in data:
-        # point_all_centers
-        distances = all_dist(dataset=centroids, query=point)
-        new_label = distances.argmin()
-        assignment[point] = new_label
-        upper_bounds_point[point] = distances.min()
-        remaining_distances = distances.drop(new_label)
-        lower_bounds_point[point] = remaining_distances.min()
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
     iteration_count = 0
-    assignment_updated = True
-    while assignment_updated:
+    converged = False
+    distances = np.ones((n, k)) * np.inf
+    upper_bounds = np.ones(n) * np.inf
+    lower_bounds = np.zeros((n, k))
+    np.random.seed(0)
+    assignment = np.random.default_rng().integers(low=0, high=k, size=n)
+    r = np.array([True] * n)
+
+    # numbers as in Elkan's original paper
+    while not converged:
         iteration_count += 1
-        assignment_updated = False
+        if iteration_count > 1:
+            converged = True
 
-        # -----------------------  Update Assignment -----------------------
-        #   update center to center bounds
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1/2 * new_bound
+        # 1
+        center_distances = np.array([np.linalg.norm(centroids - centroids[i], axis=1) for i in range(k)])
+        center_distances[center_distances == 0] = [np.nan]
+        center_bounds = 1/2 * np.nanmin(center_distances, axis=0)
 
-        for point in data:
-            label = assignment[point]
-            # die lower bound ist zu hoch (manchmal, wenn man nur moved_distance[r_prime] abzieht)
-            m = max(center_bound[label], lower_bounds_point[point])
-            if upper_bounds_point[point] >= m:
-                upper_bounds_point[point] = dist(centroids[label], point)
-                if upper_bounds_point[point] >= m:
-                    # point_all_centers
-                    # hier wird aktuell eine Distanz berechnet, die wir schon kennen: dist(centroid[label], point)
-                    # dadurch haben wir am Ende sogar eine Distanzberechnung mehr als bei Lloyd
-                    # todo: dies optimieren, indem man diese Distanz nicht berechnen muss
-                    distances = all_dist(dataset=centroids, query=point)
-                    new_label = distances.argmin()
-                    if assignment[point] != new_label:
-                        assignment[point] = new_label
-                        assignment_updated = True
-                    upper_bounds_point[point] = distances.min()
-                    remaining_distances = distances.drop(new_label)
-                    lower_bounds_point[point] = remaining_distances.min()
-                    saved_dist_comp_practice -= 1
-                else:
-                    # durch das Updaten der upper bound haben wir eine Distanzberechnung weniger gespart
-                    saved_dist_comp_theory += k - 1
-                    saved_dist_comp_practice += k - 1
-            else:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
+        # 2
+        center_condition = center_bounds[assignment] < upper_bounds  # atm list of booleans
+        relevant_indices = indices[center_condition]
+        relevant_assignment = assignment[center_condition]
+        relevant_upper_bound = upper_bounds[center_condition]
 
-        # update_center
-        moved_distance = update_centroids(centroids, assignment)
-        # k moved distances
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-        if sum(moved_distance) != 0:
-            assignment_updated = True
+        # 3
+        for center_index, center in enumerate(centroids):
+            # Note:
+            # In Elkan's Paper | In this Code
+            #        c         |  center_index
+            #       c(x)       | assignment[...]
+            # (i)
+            not_same_center = np.not_equal(relevant_assignment, center_index)
+            # (ii)
+            lu_bound_condition = lower_bounds[relevant_indices, center_index] < relevant_upper_bound
+            # (iii)
+            center_condition_again = 1/2 * center_distances[center_index, relevant_assignment] < relevant_upper_bound
 
-        # update_bounds
-        r = moved_distance.argmax()
-        remaining_moved_distances = moved_distance.drop(r)
-        r_prime = remaining_moved_distances.argmax()
-        for point in data:
-            label = assignment[point]
-            upper_bounds_point[point] += moved_distance[label]
+            all_conditions = not_same_center & lu_bound_condition & center_condition_again
+            unpruned_indices = relevant_indices[all_conditions]
 
-            # todo: correct this problem:
-            # in here the mistake is hidden. Sometimes it is not save to subtract only the second highest
-            # moved distance. Is the label not correct??
-            if r == label:
-                pass
-            if False:
-                lower_bounds_point[point] -= moved_distance[r_prime]
-            else:
-                lower_bounds_point[point] -= moved_distance[r]
+            # 3a - d(x,c(x))
+            r_condition = r[unpruned_indices]
+            need_to_update_indices = unpruned_indices[r_condition]
+            nooo_need_to_update_indices = unpruned_indices[np.logical_not(r_condition)]
+            # compute distances
+            distances[need_to_update_indices, assignment[need_to_update_indices]] = \
+                np.linalg.norm(data[need_to_update_indices] - centroids[assignment[need_to_update_indices]], axis=1)
+            # update bounds after distance computation
+            upper_bounds[need_to_update_indices] = distances[need_to_update_indices, assignment[need_to_update_indices]]
+            lower_bounds[need_to_update_indices, assignment[need_to_update_indices]] = \
+                distances[need_to_update_indices, assignment[need_to_update_indices]]
+            # distance equals upper bound for these indices now
+            r[need_to_update_indices] = False
 
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
+            # if r is False: upper bound is still tight
+            distances[nooo_need_to_update_indices, assignment[nooo_need_to_update_indices]] \
+                = upper_bounds[nooo_need_to_update_indices]
+
+            # 3b - d(x,c)
+            condition_3b = distances[unpruned_indices, assignment[unpruned_indices]] > np.min(
+                [lower_bounds[unpruned_indices, center_index],
+                 1/2 * center_distances[assignment[unpruned_indices], center_index]], axis=0)
+            condition_3b_indices = unpruned_indices[condition_3b]
+            # compute distances
+            distances[condition_3b_indices, center_index] = np.linalg.norm(data[condition_3b_indices] - center, axis=1)
+            new_assignment = distances[unpruned_indices, center_index] \
+                             < distances[unpruned_indices, assignment[unpruned_indices]]
+            new_assignment_indices = unpruned_indices[new_assignment]
+            # update assignment
+            assignment[new_assignment_indices] = center_index
+            # update upper_bounds when assignment is changed!
+            upper_bounds[new_assignment_indices] = distances[new_assignment_indices, center_index]
+            # check for convergence
+            if converged and len(new_assignment_indices) > 0:
+                converged = False
+
+        # 4
+        new_centroids = np.copy(centroids)
+        for center_index, center in enumerate(centroids):
+            assigned_points = data[assignment == center_index]
+            if len(assigned_points) > 0:
+                new_centroids[center_index] = np.mean(assigned_points, axis=0)
+
+        centroids_movement = np.linalg.norm(new_centroids - centroids, axis=1)
+
+        # 5
+        for center_index, center in enumerate(centroids):
+            # # throws an error
+            # lower_bounds[indices, center_index] = np.max((
+            #     lower_bounds[indices, center_index] - centroids_movement[center_index], 0), axis=0)
+            lower_bounds[indices, center_index] -= centroids_movement[center_index]
+
+        # 6
+        upper_bounds[indices] += centroids_movement[assignment]
+        r[indices] = True
+
+        # 7
+        centroids = new_centroids
+
+    print(f'Elkan {iteration_count}')
+    return centroids, assignment
 
 
-# todo (maybe): catch pivot_1 = pivot_2 errors (division by zero)
-def hamerly_both_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
+def elkan_full_ptolemy(data, initial_centroids):
     """
-    This variant uses both triangle and Ptolemy inequality for the upper bound
+    This is a modified Elkan algorithm. Instead of the triangle inequality, it uses ptolemy's inequality to create both
+    upper and lower bounds.
 
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
-    """
-    # initialise
-    centroids = initial_centroids
-    assignment = dict.fromkeys(data, -1)
-    upper_bounds_point = dict()
-    lower_bounds_point = dict()
-    center_bound = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
+        This code is vectorized. In this implementation, the algorithm is designed to stop only if all the centroids stay
+    fixed.
 
-    # new
-    moved_distance = [0] * k
-    ptolemy_wins = 0
-    triangle_wins = 0
-    both_win = 0
-    no_winner = 0
-
-    # new (point_to_center distances)
-    dimension = len(data[0])
-    zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
-    zero_2 = tuple([0 for dim in range(dimension)])
-    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory, saved_dist_comp_practice)
-    point_to_zero_2 = update_points_to_pivot_distances(data, zero_2, saved_dist_comp_theory, saved_dist_comp_practice)
-
-    # die bounds müssen erst einmal initialsiert werden, damit man in den ersten Durchlauf starten kann
-    for point in data:
-        # point_all_centers
-        distances = all_dist(dataset=centroids, query=point)
-        new_label = distances.argmin()
-        assignment[point] = new_label
-        upper_bounds_point[point] = distances.min()
-        remaining_distances = distances.drop(new_label)
-        lower_bounds_point[point] = remaining_distances.min()
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-    # new (old_center_to_zeros distance
-    # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-    old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                              saved_dist_comp_practice)
-    old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                              saved_dist_comp_practice)
-
-    iteration_count = 0
-    assignment_updated = True
-    while assignment_updated:
-        iteration_count += 1
-        assignment_updated = False
-
-        # new (new_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-        new_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-
-        # -----------------------  Update Assignment -----------------------
-        #   update center to center bounds
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1/2 * new_bound
-
-        for point in data:
-            label = assignment[point]
-            # die lower bound ist zu hoch (manchmal, wenn man nur moved_distance[r_prime] abzieht)
-            m = max(center_bound[label], lower_bounds_point[point])
-            upper_bound_ptolemy_1 = (dist(point, centroids[label]) * new_centers_to_zero_1[label]
-                                     + point_to_zero_1[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_1[label]
-            upper_bound_ptolemy_2 = (dist(point, centroids[label]) * new_centers_to_zero_2[label]
-                                     + point_to_zero_2[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_2[label]
-            upper_bound_ptolemy = min(upper_bound_ptolemy_1, upper_bound_ptolemy_2)
-            saved_dist_comp_practice -= 2
-            # Test which bound is better
-            if upper_bounds_point[point] < m <= upper_bound_ptolemy:
-                triangle_wins += 1
-            elif upper_bound_ptolemy < m <= upper_bounds_point[point]:
-                ptolemy_wins += 1
-            elif max(upper_bounds_point[point], upper_bound_ptolemy) < m:
-                both_win += 1
-            else:
-                no_winner += 1
-            if upper_bounds_point[point] >= m or upper_bound_ptolemy >= m:
-                upper_bounds_point[point] = dist(centroids[label], point)
-                if upper_bounds_point[point] >= m or upper_bound_ptolemy >= m:
-                    # point_all_centers
-                    # hier wird aktuell eine Distanz berechnet, die wir schon kennen: dist(centroid[label], point)
-                    # dadurch haben wir am Ende sogar eine Distanzberechnung mehr als bei Lloyd
-                    # todo: dies optimieren, indem man diese Distanz nicht berechnen muss
-                    distances = all_dist(dataset=centroids, query=point)
-                    new_label = distances.argmin()
-                    if assignment[point] != new_label:
-                        assignment[point] = new_label
-                        assignment_updated = True
-                    upper_bounds_point[point] = distances.min()
-                    remaining_distances = distances.drop(new_label)
-                    lower_bounds_point[point] = remaining_distances.min()
-                    saved_dist_comp_practice -= 1
-                else:
-                    # durch das Updaten der upper bound haben wir eine Distanzberechnung weniger gespart
-                    saved_dist_comp_theory += k - 1
-                    saved_dist_comp_practice += k - 1
-            else:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-
-        # new (old_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-        old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-
-        # update_center
-        moved_distance = update_centroids(centroids, assignment)
-        # k moved distances
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-        if sum(moved_distance) != 0:
-            assignment_updated = True
-
-        # update_bounds
-        r = moved_distance.argmax()
-        remaining_moved_distances = moved_distance.drop(r)
-        r_prime = remaining_moved_distances.argmax()
-        for point in data:
-            label = assignment[point]
-            upper_bounds_point[point] += moved_distance[label]
-
-            # todo: correct this problem:
-            # inn here the mistake is hidden. Sometimes it is not save to subtract only the second highest
-            # moved distance. Is the label not correct??
-            if r == label:
-                pass
-            if False:
-                lower_bounds_point[point] -= moved_distance[r_prime]
-            else:
-                lower_bounds_point[point] -= moved_distance[r]
-
-    print(f'Triangle wins: {triangle_wins}')
-    print(f'Ptolemy wins: {ptolemy_wins}')
-    print(f'Both win: {both_win}')
-    print(f'No winner: {no_winner}')
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
-
-
-def hamerly_lower_ptolemy_upper_bound_algorithm(data, k, initial_centroids):
-    """
-    This variant replaces the usual upper bound used by Hamerly with an upper bound created with the Ptolemy inequality
-
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
+    :param data: 2-dimensional numpy array.
+    :param initial_centroids: 2-dimensional numpy array. The initial centroids are passed as an argument rather than
+        produced internally, to create reproducibility and comparability with the other algorithms.
+    :return: Centroids, clusters. Centroids as a 2-dimensional numpy array. Clusters is an array of integers 0,...,k-1.
+        The first integer indicates to which centroids the first data point is associated, the second integer indicates
+        to which centroid the second data point is associated, and so on. Where the entry 0 means that a data point is
+        associated to the first centroid in 'centroids', the entry 1 means that a data point is associated to the second
+        centroid in 'centroids', and so on.
     """
     # initialise
+    k = len(initial_centroids)
+    n = len(data)
+    indices = np.array(range(n))
     centroids = initial_centroids
-    assignment = dict.fromkeys(data, -1)
-    lower_bounds_point = dict()
-    center_bound = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-
-    # new
-    moved_distance = [0] * k
-
-    # new (point_to_center distances)
-    dimension = len(data[0])
-    zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
-    zero_2 = tuple([0 for dim in range(dimension)])
-    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory, saved_dist_comp_practice)
-    point_to_zero_2 = update_points_to_pivot_distances(data, zero_2, saved_dist_comp_theory, saved_dist_comp_practice)
-
-    # die bounds müssen erst einmal initialsiert werden, damit man in den ersten Durchlauf starten kann
-    for point in data:
-        # point_all_centers
-        distances = all_dist(dataset=centroids, query=point)
-        new_label = distances.argmin()
-        assignment[point] = new_label
-        remaining_distances = distances.drop(new_label)
-        lower_bounds_point[point] = remaining_distances.min()
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-    # new (old_center_to_zeros distance)
-    # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-    old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                              saved_dist_comp_practice)
-    old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                              saved_dist_comp_practice)
-
     iteration_count = 0
-    assignment_updated = True
-    while assignment_updated:
+    converged = False
+    distances = np.ones((n, k)) * np.inf
+    upper_bounds = np.ones(n) * np.inf
+    lower_bounds = np.zeros((n, k))
+    np.random.seed(0)
+    assignment = np.random.default_rng().integers(low=0, high=k, size=n)
+    loose_upper_bound = np.array([True] * n)  # corresponds to "r" in Elkan's paper
+    # ptolemy
+    dim = len(data[0])
+    pivot = np.zeros(dim)
+    pivot_dist_data = np.linalg.norm(data - pivot, axis=1)
+
+    # numbers as in Elkan's original paper
+    while not converged:
         iteration_count += 1
-        assignment_updated = False
-
-        # new (new_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-        new_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-
-        # -----------------------  Update Assignment -----------------------
-        #   update center to center bounds
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1/2 * new_bound
-
-        for point in data:
-            label = assignment[point]
-            # die lower bound ist zu hoch (manchmal, wenn man nur moved_distance[r_prime] abzieht)
-            m = max(center_bound[label], lower_bounds_point[point])
-            upper_bound_ptolemy_1 = (dist(point, centroids[label]) * new_centers_to_zero_1[label]
-                                     + point_to_zero_1[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_1[label]
-            upper_bound_ptolemy_2 = (dist(point, centroids[label]) * new_centers_to_zero_2[label]
-                                     + point_to_zero_2[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_2[label]
-            upper_bound_ptolemy = min(upper_bound_ptolemy_1, upper_bound_ptolemy_2)
-            saved_dist_comp_practice -= 2
-            if upper_bound_ptolemy >= m:
-                # point_all_centers
-                # hier wird aktuell eine Distanz berechnet, die wir schon kennen: dist(centroid[label], point)
-                # dadurch haben wir am Ende sogar eine Distanzberechnung mehr als bei Lloyd
-                # todo: dies optimieren, indem man diese Distanz nicht berechnen muss
-                distances = all_dist(dataset=centroids, query=point)
-                new_label = distances.argmin()
-                if assignment[point] != new_label:
-                    assignment[point] = new_label
-                    assignment_updated = True
-                remaining_distances = distances.drop(new_label)
-                lower_bounds_point[point] = remaining_distances.min()
-                saved_dist_comp_practice -= 1
-            else:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-
-        # new (old_center_to_zero distances)
-        all_dist_old_centers_zero_1 = all_dist(centroids, query=zero_1)
-        all_dist_old_centers_zero_2 = all_dist(centroids, query=zero_2)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-        old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-
-        # update_center
-        moved_distance = update_centroids(centroids, assignment)
-        # k moved distances
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-        if sum(moved_distance) != 0:
-            assignment_updated = True
-
-        # update_bounds
-        r = moved_distance.argmax()
-        remaining_moved_distances = moved_distance.drop(r)
-        r_prime = remaining_moved_distances.argmax()
-        for point in data:
-            label = assignment[point]
-            # todo: correct this problem:
-            # inn here the mistake is hidden. Sometimes it is not save to subtract only the second highest
-            # moved distance. Is the label not correct??
-            if r == label:
-                pass
-            if False:
-                lower_bounds_point[point] -= moved_distance[r_prime]
-            else:
-                lower_bounds_point[point] -= moved_distance[r]
-
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
-
-
-def elkan_algorithm(data, k, initial_centroids):
-    # Initialisation
-    centroids = initial_centroids
-    assignment = dict()
-    # the points are the keys and each value is a list of lower bounds with length k
-    lower_bounds = dict()
-    upper_bound = dict()
-    r = dict.fromkeys(data, True)
-    center_bound = dict()
-    center_center_dist = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-    pruning_only = 0
-
-    # first assignment and get first bounds tight
-    for point in data:
-        all_dist_this_point = all_dist(dataset=centroids, query=point)
-        new_label = all_dist_this_point.argmin()
-        assignment[point] = new_label
-        distances = list(all_dist_this_point)
-        lower_bounds[point] = distances
-        min_dist = all_dist_this_point[new_label]
-        upper_bound[point] = min_dist
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-    iteration_count = 0
-    not_converged = True
-    while not_converged:
-        iteration_count += 1
-        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
-        if iteration_count > 2:
-            not_converged = False
-        # 1
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            for second_label in all_dist_centroid.index:
-                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1/2 * new_bound
-
-        for point in data:
-            label = assignment[point]
-            # 2
-            if upper_bound[point] < 0.9999 * dist(point, centroids[label]):
-                print('Oh noo!')
-
-            if upper_bound[point] <= center_bound[label]:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-                pruning_only += k
-                pass
-            # 3
-            else:
-                for other_label in [lab for lab in range(k) if lab != label]:
-                    if upper_bound[point] > lower_bounds[point][other_label] and \
-                            upper_bound[point] > 1/2 * center_center_dist[(label, other_label)]:
-                        # 3a
-                        if r[point]:
-                            distance = dist(point, centroids[label])
-                            upper_bound[point] = distance
-                            lower_bounds[point][label] = distance
-                            r[point] = False
-                        else:
-                            distance = upper_bound[point]
-
-                            # saved_dist_comp so richtig berechnet ???
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
-                            if distance != dist(point, centroids[label]):
-                                print('Housten, we have a problem')
-                                raise RuntimeError('Upper bound was not equal to distance')
-
-                        # 3b
-                        if distance > lower_bounds[point][other_label] or \
-                                distance > 1/2 * center_center_dist[(label, other_label)]:
-                            distance_other_center = dist(point, centroids[other_label])
-                            lower_bounds[point][other_label] = distance_other_center
-                            if distance_other_center < distance:
-                                assignment[point] = other_label
-                                label = other_label  # !!!!!!!!
-                                upper_bound[point] = distance_other_center
-                                not_converged = True
-                        else:
-                            # saved_dist_comp so richtig berechnet ???
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
-
-        # 4 and 7
-        moved_distance = update_centroids(centroids, assignment)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-        for point in data:
-            # 5
-            # todo: max(0, ...) hinzufügen
-            lower_bounds[point] = list( np.array(lower_bounds[point]) - np.array(moved_distance))
-            # # veraltete, nicht vektorisierte Variante
-            # for label in range(k):
-            #     lower_bounds[point][label] = max(0, lower_bounds[point][label] - moved_distance[label])
-            # 6
-            upper_bound[point] += moved_distance[assignment[point]]
-            r[point] = True
-
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
-
-
-# todo: das mal vernünftig machen, mit der upper_bound_ptolemy: Wann die berechnet wird, wie die mitgenommen wird usw.
-def elkan_lower_ptolemy_upper_bound_algorithm_single(data, k, initial_centroids):
-    """
-
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
-    """
-    # Initialisation
-    centroids = initial_centroids
-    assignment = dict()
-    upper_bound_ptolemy = dict()
-    # the points are the keys and each value is a list of lower bounds with length k
-    lower_bounds = dict()
-    r = dict.fromkeys(data, True)
-    center_bound = dict()
-    center_center_dist = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-    pruning_only = 0
-
-    # new (point_to_center distances)
-    dimension = len(data[0])
-    zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
-    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory,
-                                                       saved_dist_comp_practice)
-
-    # Initialise bounds
-    for point in data:
-        all_dist_this_point = all_dist(dataset=centroids, query=point)
-        new_label = all_dist_this_point.argmin()
-        assignment[point] = new_label
-        distances = list(all_dist_this_point)
-        lower_bounds[point] = distances
-        min_dist = all_dist_this_point[new_label]
-        upper_bound_ptolemy[point] = min_dist
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-    iteration_count = 0
-    not_converged = True
-    while not_converged:
-        iteration_count += 1
-        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
-        if iteration_count > 2:
-            not_converged = False
+        if iteration_count > 1:
+            converged = True
 
         # 1
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            for second_label in all_dist_centroid.index:
-                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1 / 2 * new_bound
+        center_distances = np.array([np.linalg.norm(centroids - centroids[i], axis=1) for i in range(k)])
+        center_distances[center_distances == 0] = [np.nan]
+        center_bounds = 1/2 * np.nanmin(center_distances, axis=0)
 
-        for point in data:
-            label = assignment[point]
-            # 2
-            if upper_bound_ptolemy[point] < 0.9999 * dist(point, centroids[label]):
-                print('Oh noo!')
+        # 2
+        center_condition = center_bounds[assignment] < upper_bounds  # atm list of booleans
+        relevant_indices = indices[center_condition]
+        relevant_assignment = assignment[center_condition]
+        relevant_upper_bound = upper_bounds[center_condition]
 
-            if upper_bound_ptolemy[point] <= center_bound[label]:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-                pruning_only += k
-                pass
-            # 3
-            else:
-                for other_label in [lab for lab in range(k) if lab != label]:
-                    if upper_bound_ptolemy[point] > lower_bounds[point][other_label] and \
-                            upper_bound_ptolemy[point] > 1 / 2 * center_center_dist[(label, other_label)]:
-                        # 3a
-                        if r[point]:
-                            distance = dist(point, centroids[label])
-                            upper_bound_ptolemy[point] = distance  # ???
-                            lower_bounds[point][label] = distance
-                            r[point] = False
-                        else:
-                            distance = upper_bound_ptolemy[point]
-                            # saved_dist_comp so richtig berechnet ???
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
+        # 3
+        for center_index, center in enumerate(centroids):
+            # Note:
+            # In Elkan's Paper | In this Code
+            #        c         |  center_index
+            #       c(x)       | assignment[...]
+            # (i)
+            not_same_center = np.not_equal(relevant_assignment, center_index)  # broadcasting
+            # (ii)
+            lu_bound_condition = lower_bounds[relevant_indices, center_index] < relevant_upper_bound
+            # (iii)
+            center_condition_again = 1/2 * center_distances[center_index, relevant_assignment] < relevant_upper_bound
 
-                            # todo: es kann leider passieren, dass wir hier rein gehen...
-                            if distance != dist(point, centroids[label]):
-                                print('Housten, we have a problem')
-                                raise RuntimeError('Upper bound was not equal to distance')
+            all_conditions = not_same_center & lu_bound_condition & center_condition_again
+            unpruned_indices = relevant_indices[all_conditions]
 
-                        # 3b
-                        if distance > lower_bounds[point][other_label] or \
-                                distance > 1 / 2 * center_center_dist[(label, other_label)]:
-                            distance_other_center = dist(point, centroids[other_label])
-                            lower_bounds[point][other_label] = distance_other_center
-                            if distance_other_center < distance:
-                                assignment[point] = other_label
-                                label = other_label  # !!!!!!!!
-                                upper_bound_ptolemy[point] = distance_other_center  # ???
-                                not_converged = True
-                        else:
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
+            # 3a - d(x,c(x))
+            # Note:
+            # r <-> loose_upper_bound
+            r_condition = loose_upper_bound[unpruned_indices]
+            need_to_update_indices = unpruned_indices[r_condition]
+            nooo_need_to_update_indices = unpruned_indices[np.logical_not(r_condition)]
+            # compute distances
+            distances[need_to_update_indices, assignment[need_to_update_indices]] = \
+                np.linalg.norm(data[need_to_update_indices] - centroids[assignment[need_to_update_indices]], axis=1)
+            # update bounds after distance computation
+            upper_bounds[need_to_update_indices] = distances[need_to_update_indices, assignment[need_to_update_indices]]
+            lower_bounds[need_to_update_indices, assignment[need_to_update_indices]] = \
+                distances[need_to_update_indices, assignment[need_to_update_indices]]
+            # distance equals upper bound for these indices now
+            loose_upper_bound[need_to_update_indices] = False
 
-        # new (old_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
+            # if r is False: upper bound is still tight
+            distances[nooo_need_to_update_indices, assignment[nooo_need_to_update_indices]] \
+                = upper_bounds[nooo_need_to_update_indices]
 
-        # 4 and 7 (update center)
-        moved_distance = update_centroids(centroids, assignment)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
+            # 3b - d(x,c)
+            condition_3b = distances[unpruned_indices, assignment[unpruned_indices]] > np.min(
+                [lower_bounds[unpruned_indices, center_index],
+                 1/2 * center_distances[assignment[unpruned_indices], center_index]], axis=0)
+            condition_3b_indices = unpruned_indices[condition_3b]
+            # compute distances
+            distances[condition_3b_indices, center_index] = np.linalg.norm(data[condition_3b_indices] - center, axis=1)
+            new_assignment = distances[unpruned_indices, center_index] \
+                             < distances[unpruned_indices, assignment[unpruned_indices]]
+            new_assignment_indices = unpruned_indices[new_assignment]
+            # update assignment
+            assignment[new_assignment_indices] = center_index
+            # update upper_bounds when assignment is changed!
+            upper_bounds[new_assignment_indices] = distances[new_assignment_indices, center_index]
+            # check for convergence
+            if converged and len(new_assignment_indices) > 0:
+                converged = False
 
-        # new (new_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
+        # 4
+        new_centroids = np.copy(centroids)
+        for center_index, center in enumerate(centroids):
+            assigned_points = data[assignment == center_index]
+            if len(assigned_points) > 0:
+                new_centroids[center_index] = np.mean(assigned_points, axis=0)
 
-        for point in data:
-            # 5
-            lower_bounds[point] = list(np.array(lower_bounds[point]) - np.array(moved_distance))
+        centroids_movement = np.linalg.norm(new_centroids - centroids, axis=1)
 
-            # 6
-            label = assignment[point]
-            upper_bound_ptolemy_1 = (upper_bound_ptolemy[point] * new_centers_to_zero_1[label]
-                                     + point_to_zero_1[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_1[label]
-            upper_bound_ptolemy[point] = upper_bound_ptolemy_1
-            r[point] = True
+        # ptolemy
+        pivot_dist_old_center = np.linalg.norm(centroids - pivot, axis=1)
+        pivot_dist_new_center = np.linalg.norm(new_centroids - pivot, axis=1)
 
-    print(f'Saved_dist_theory: {int(saved_dist_comp_theory)}')
-    print(f'Pruning only:      {pruning_only}')
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
+        # 5
+        for center_index, center in enumerate(centroids):
+            # # throws an error
+            # lower_bounds[indices, center_index] = \
+            #    np.max(((lower_bounds[indices, center_index] * pivot_dist_new_center[center_index] -
+            #    pivot_dist_data[indices] * centroids_movement[center_index]) / pivot_dist_old_center[center_index], 0),
+            #    axis=0)
+            lower_bounds[indices, center_index] = \
+                (lower_bounds[indices, center_index] * pivot_dist_new_center[center_index] -
+                    pivot_dist_data[indices] * centroids_movement[center_index]) / pivot_dist_old_center[center_index]
 
 
-def elkan_lower_ptolemy_upper_bound_algorithm_multi(data, k, initial_centroids):
+        # 6
+        # upper_bounds[indices] += centroids_movement[assignment]
+        upper_bounds[indices] = ((upper_bounds[indices] * pivot_dist_new_center[assignment] +
+                                 pivot_dist_data[indices] * centroids_movement[assignment]) /
+                                 pivot_dist_old_center[assignment])
+        loose_upper_bound[indices] = True
+
+        # 7
+        centroids = new_centroids
+
+    print(f'Elkan Pto {iteration_count}')
+    return centroids, assignment
+
+
+def elkan_counting(data, initial_centroids):
     """
+    The classical Elkan algorithm, using the triangle inequality to achieve speedups compared with the Lloyd algorithm.
 
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
+        This version counts the number of evaluations of the euclidean distance that were carried out. They are printed, but
+    the code could be changed to return them instead.
+
+        This code is vectorized. There are implementations where the algorithm terminates, when the movement of the
+    centroids is within a given tolerance. This is not the case here. In this implementation, the algorithm is designed
+    to stop only if all the centroids stay fixed.
+
+    :param data: 2-dimensional numpy array.
+    :param initial_centroids: 2-dimensional numpy array. The initial centroids are passed as an argument rather than
+        produced internally, to create reproducibility and comparability with the other algorithms.
+    :return: Centroids, clusters. Centroids as a 2-dimensional numpy array. Clusters is an array of integers 0,...,k-1.
+        The first integer indicates to which centroids the first data point is associated, the second integer indicates to
+        which centroid the second data point is associated, and so on. Where the entry 0 means that a data point is
+        associated to the first centroid in 'centroids', the entry 1 means that a data point is associated to the second
+        centroid in 'centroids', and so on.
     """
-    # Initialisation
+    # initialise
+    k = len(initial_centroids)
+    n = len(data)
+    indices = np.array(range(n))
     centroids = initial_centroids
-    assignment = dict()
-    upper_bound_ptolemy = dict()
-    # the points are the keys and each value is a list of lower bounds with length k
-    lower_bounds = dict()
-    r = dict.fromkeys(data, True)
-    center_bound = dict()
-    center_center_dist = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-    pruning_only = 0
-
-    # new
-    moved_distance = [0] * k
-
-    # new (point_to_center distances)
-    dimension = len(data[0])
-    zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
-    zero_2 = tuple([0 for dim in range(dimension)])
-    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory,
-                                                       saved_dist_comp_practice)
-    point_to_zero_2 = update_points_to_pivot_distances(data, zero_2, saved_dist_comp_theory,
-                                                       saved_dist_comp_practice)
-
-    # Initialise bounds
-    for point in data:
-        all_dist_this_point = all_dist(dataset=centroids, query=point)
-        new_label = all_dist_this_point.argmin()
-        assignment[point] = new_label
-        distances = list(all_dist_this_point)
-        lower_bounds[point] = distances
-        min_dist = all_dist_this_point[new_label]
-        upper_bound_ptolemy[point] = min_dist
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
     iteration_count = 0
-    not_converged = True
-    while not_converged:
+    converged = False
+    distances = np.ones((n, k)) * np.inf
+    upper_bounds = np.ones(n) * np.inf
+    lower_bounds = np.zeros((n, k))
+    np.random.seed(0)
+    assignment = np.random.default_rng().integers(low=0, high=k, size=n)
+    loose_upper_bound = np.array([True] * n)  # corresponds to "r" in Elkan's paper
+    # dist_comp counter (theoretically, not practically, i.e. the implementation needs more than counted)
+    dist_comp_tri = 0
+
+    # numbers as in Elkan's original paper
+    while not converged:
         iteration_count += 1
-        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
-        if iteration_count > 2:
-            not_converged = False
+        if iteration_count > 1:
+            converged = True
 
         # 1
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            for second_label in all_dist_centroid.index:
-                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1 / 2 * new_bound
+        center_distances = np.array([np.linalg.norm(centroids - centroids[i], axis=1) for i in range(k)])
+        center_distances[center_distances == 0] = [np.nan]
+        center_bounds = 1 / 2 * np.nanmin(center_distances, axis=0)
+        dist_comp_tri += k * (k-1) / 2
 
-        for point in data:
-            label = assignment[point]
-            # 2
-            # ptolemy upper bound
-            # upper_bound_ptolemy_1 = (dist(point, centroids[label]) * new_centers_to_zero_1[label]
-            #                          + point_to_zero_1[point] * moved_distance[label]) \
-            #                          / old_centers_to_zero_1[label]
-            # upper_bound_ptolemy_2 = (dist(point, centroids[label]) * new_centers_to_zero_2[label]
-            #                          + point_to_zero_2[point] * moved_distance[label]) \
-            #                          / old_centers_to_zero_2[label]
-            # saved_dist_comp_practice -= 2
-            if upper_bound_ptolemy[point] < 0.9999 * dist(point, centroids[label]):
-                print('Oh noo!')
+        # 2
+        center_condition = center_bounds[assignment] < upper_bounds
+        relevant_indices = indices[center_condition]
+        relevant_assignment = assignment[center_condition]
+        relevant_upper_bound = upper_bounds[center_condition]
 
-            if upper_bound_ptolemy[point] <= center_bound[label]:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-                pruning_only += k
-            # 3
-            else:
-                for other_label in [lab for lab in range(k) if lab != label]:
-                    if upper_bound_ptolemy[point] > lower_bounds[point][other_label] and \
-                            upper_bound_ptolemy[point] > 1 / 2 * center_center_dist[(label, other_label)]:
-                        # 3a
-                        if r[point]:
-                            distance = dist(point, centroids[label])
-                            # die ptolomäische Variante profitiert noch nicht davon, dass man die upper bound hier
-                            # aktualisieren könnte
-                            upper_bound_ptolemy[point] = distance  # ???
-                            lower_bounds[point][label] = distance
-                            r[point] = False
-                        else:
-                            distance = upper_bound_ptolemy[point]
+        # 3
+        for center_index, center in enumerate(centroids):
+            # Note:
+            # In Elkan's Paper | In this Code
+            #        c         |  center_index
+            #       c(x)       | assignment[...]
+            # (i)
+            not_same_center = np.not_equal(relevant_assignment, center_index)
+            # (ii)
+            lu_bound_condition = lower_bounds[relevant_indices, center_index] < relevant_upper_bound
+            # (iii)
+            center_condition_again = 1 / 2 * center_distances[center_index, relevant_assignment] < relevant_upper_bound
 
-                            # saved_dist_comp so richtig berechnet ???
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
+            all_conditions = not_same_center & lu_bound_condition & center_condition_again
+            unpruned_indices = relevant_indices[all_conditions]
 
-                            # todo: es kann leider passieren, dass wir hier rein gehen...
-                            if distance != dist(point, centroids[label]):
-                                print('Housten, we have a problem')
-                                raise RuntimeError('Upper bound was not equal to distance')
+            # 3a - d(x,c(x))
+            r_condition = loose_upper_bound[unpruned_indices]
+            need_to_update_indices = unpruned_indices[r_condition]
+            nooo_need_to_update_indices = unpruned_indices[np.logical_not(r_condition)]
+            # compute distances
+            distances[need_to_update_indices, assignment[need_to_update_indices]] = \
+                np.linalg.norm(data[need_to_update_indices] - centroids[assignment[need_to_update_indices]], axis=1)
+            dist_comp_tri += len(need_to_update_indices)
+            # update bounds after distance computation
+            upper_bounds[need_to_update_indices] = distances[need_to_update_indices, assignment[need_to_update_indices]]
+            lower_bounds[need_to_update_indices, assignment[need_to_update_indices]] = \
+                distances[need_to_update_indices, assignment[need_to_update_indices]]
+            # distance equals upper bound for these indices now
+            loose_upper_bound[need_to_update_indices] = False
 
-                        # 3b
-                        if distance > lower_bounds[point][other_label] or \
-                                distance > 1 / 2 * center_center_dist[(label, other_label)]:
-                            distance_other_center = dist(point, centroids[other_label])
-                            lower_bounds[point][other_label] = distance_other_center
-                            if distance_other_center < distance:
-                                assignment[point] = other_label
-                                label = other_label  # !!!!!!!!
-                                upper_bound_ptolemy[point] = distance_other_center  # ???
-                                not_converged = True
-                        else:
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
+            # if loose_upper_bound is False: upper bound is still tight
+            distances[nooo_need_to_update_indices, assignment[nooo_need_to_update_indices]] \
+                = upper_bounds[nooo_need_to_update_indices]
 
-        # new (old_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-        old_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
+            # 3b - d(x,c)
+            condition_3b = distances[unpruned_indices, assignment[unpruned_indices]] > np.min(
+                [lower_bounds[unpruned_indices, center_index],
+                 1 / 2 * center_distances[assignment[unpruned_indices], center_index]], axis=0)
+            condition_3b_indices = unpruned_indices[condition_3b]
+            # compute distances
+            distances[condition_3b_indices, center_index] = np.linalg.norm(data[condition_3b_indices] - center, axis=1)
+            dist_comp_tri += len(condition_3b_indices)
+            # check, which points need a new assignment
+            new_assignment = distances[unpruned_indices, center_index] \
+                             < distances[unpruned_indices, assignment[unpruned_indices]]
+            new_assignment_indices = unpruned_indices[new_assignment]
+            # update assignment
+            assignment[new_assignment_indices] = center_index
+            # update upper_bounds when assignment is changed!
+            upper_bounds[new_assignment_indices] = distances[new_assignment_indices, center_index]
+            # check for convergence
+            if converged and len(new_assignment_indices) > 0:
+                converged = False
 
-        # 4 and 7 (update center)
-        moved_distance = update_centroids(centroids, assignment)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
+        # 4
+        new_centroids = np.copy(centroids)
+        for center_index, center in enumerate(centroids):
+            assigned_points = data[assignment == center_index]
+            if len(assigned_points) > 0:
+                new_centroids[center_index] = np.mean(assigned_points, axis=0)
 
-        # new (new_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-        new_centers_to_zero_2 = update_centers_to_pivot_distances(centroids, zero_2, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
+        centroids_movement = np.linalg.norm(new_centroids - centroids, axis=1)
+        dist_comp_tri += k
 
-        for point in data:
-            # 5
-            for label in range(k):
-                lower_bounds[point][label] = max(0, lower_bounds[point][label] - moved_distance[label])
+        # 5
+        for center_index, center in enumerate(centroids):
+            # # throws an error
+            # lower_bounds[indices, center_index] = np.max((
+            #     lower_bounds[indices, center_index] - centroids_movement[center_index], 0), axis=0)
+            lower_bounds[indices, center_index] -= centroids_movement[center_index]
 
-            # 6
-            label = assignment[point]
-            upper_bound_ptolemy_1 = (upper_bound_ptolemy[point] * new_centers_to_zero_1[label]
-                                     + point_to_zero_1[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_1[label]
-            upper_bound_ptolemy_2 = (upper_bound_ptolemy[point] * new_centers_to_zero_2[label]
-                                     + point_to_zero_2[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_2[label]
-            upper_bound_ptolemy[point] = min(upper_bound_ptolemy_1, upper_bound_ptolemy_2)
-            r[point] = True
+        # 6
+        upper_bounds[indices] += centroids_movement[assignment]
+        loose_upper_bound[indices] = True
 
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
+        # 7
+        centroids = new_centroids
+
+    print(f'Elkan Dist_Comp {dist_comp_tri}')
+    return centroids, assignment
 
 
-def elkan_style_ptolemy_both_bounds_algorithm_single(data, k, initial_centroids):
+def elkan_full_ptolemy_counting(data, initial_centroids):
     """
+    This is a modified Elkan algorithm. Instead of the triangle inequality, it uses ptolemy's inequality to create both
+    upper and lower bounds.
 
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
+        This version counts the number of evaluations of the euclidean distance that were carried out. They are printed,
+    but the code could be changed to return them instead.
+
+        This code is vectorized. There are implementations where the algorithm terminates, when the movement of the
+    centroids is within a given tolerance. This is not the case here. In this implementation, the algorithm is designed
+    to stop only if all the centroids stay fixed.
+
+    :param data: 2-dimensional numpy array.
+    :param initial_centroids: 2-dimensional numpy array. The initial centroids are passed as an argument rather than
+        produced internally, to create reproducibility and comparability with the other algorithms.
+    :return: Centroids, clusters. Centroids as a 2-dimensional numpy array. Clusters is an array of integers 0,...,k-1.
+        The first integer indicates to which centroids the first data point is associated, the second integer indicates to
+        which centroid the second data point is associated, and so on. Where the entry 0 means that a data point is
+        associated to the first centroid in 'centroids', the entry 1 means that a data point is associated to the second
+        centroid in 'centroids', and so on.
     """
-    # Initialisation
+    # initialise
+    k = len(initial_centroids)
+    n = len(data)
+    indices = np.array(range(n))
     centroids = initial_centroids
-    assignment = dict()
-    upper_bound_ptolemy = dict()
-    # the points are the keys and each value is a list of lower bounds with length k
-    lower_bounds = dict()
-    r = dict.fromkeys(data, True)
-    center_bound = dict()
-    center_center_dist = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-    pruning_only = 0
-
-    # new (point_to_zero distances)
-    dimension = len(data[0])
-    zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
-    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory,
-                                                       saved_dist_comp_practice)
-
-    # Initialise bounds
-    for point in data:
-        all_dist_this_point = all_dist(dataset=centroids, query=point)
-        new_label = all_dist_this_point.argmin()
-        assignment[point] = new_label
-        distances = list(all_dist_this_point)
-        lower_bounds[point] = distances
-        min_dist = all_dist_this_point[new_label]
-        upper_bound_ptolemy[point] = min_dist
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
     iteration_count = 0
-    not_converged = True
-    while not_converged:
+    converged = False
+    distances = np.ones((n, k)) * np.inf
+    upper_bounds = np.ones(n) * np.inf
+    lower_bounds = np.zeros((n, k))
+    np.random.seed(0)
+    assignment = np.random.default_rng().integers(low=0, high=k, size=n)
+    loose_upper_bound = np.array([True] * n)  # corresponds to "r" in Elkan's paper
+    # dist_comp counter (theoretically, not practically, i.e. the implementation needs more than counted)
+    dist_comp_pto = 0
+    # ptolemy
+    dim = len(data[0])
+    pivot = np.zeros(dim)
+    pivot_dist_data = np.linalg.norm(data - pivot, axis=1)
+    dist_comp_pto += n
+    # to be compatible with the code between 4 and 5; we need "..._new_center" for the first "..._old_center"
+    pivot_dist_new_center = np.linalg.norm(centroids - pivot, axis=1)
+    dist_comp_pto += k
+
+    # numbers as in Elkan's original paper
+    while not converged:
         iteration_count += 1
-        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
-        if iteration_count > 2:
-            not_converged = False
+        if iteration_count > 1:
+            converged = True
 
         # 1
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            for second_label in all_dist_centroid.index:
-                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1 / 2 * new_bound
+        center_distances = np.array([np.linalg.norm(centroids - centroids[i], axis=1) for i in range(k)])
+        center_distances[center_distances == 0] = [np.nan]
+        center_bounds = 1 / 2 * np.nanmin(center_distances, axis=0)
+        dist_comp_pto += k * (k-1) / 2
 
-        for point in data:
-            label = assignment[point]
-            # 2
-            # ptolemy upper bound
-            # upper_bound_ptolemy_1 = (dist(point, centroids[label]) * new_centers_to_zero_1[label]
-            #                          + point_to_zero_1[point] * moved_distance[label]) \
-            #                          / old_centers_to_zero_1[label]
-            if upper_bound_ptolemy[point] < 0.9999 * dist(point, centroids[label]):
-                print('Oh noo!')
+        # 2
+        center_condition = center_bounds[assignment] < upper_bounds  # atm list of booleans
+        relevant_indices = indices[center_condition]
+        relevant_assignment = assignment[center_condition]
+        relevant_upper_bound = upper_bounds[center_condition]
 
-            if upper_bound_ptolemy[point] <= center_bound[label]:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-                pruning_only += k
-            # 3
-            else:
-                for other_label in [lab for lab in range(k) if lab != label]:
-                    if upper_bound_ptolemy[point] > lower_bounds[point][other_label] and \
-                            upper_bound_ptolemy[point] > 1 / 2 * center_center_dist[(label, other_label)]:
-                        # 3a
-                        if r[point]:
-                            distance = dist(point, centroids[label])
-                            # die ptolomäische Variante profitiert noch nicht davon, dass man die upper bound hier
-                            # aktualisieren könnte
-                            upper_bound_ptolemy[point] = distance  # ???
-                            lower_bounds[point][label] = distance
-                            r[point] = False
-                        else:
-                            distance = upper_bound_ptolemy[point]
+        # 3
+        for center_index, center in enumerate(centroids):
+            # Note:
+            # In Elkan's Paper | In this Code
+            #        c         |  center_index
+            #       c(x)       | assignment[...]
+            # (i)
+            not_same_center = np.not_equal(relevant_assignment, center_index)  # broadcasting
+            # (ii)
+            lu_bound_condition = lower_bounds[relevant_indices, center_index] < relevant_upper_bound
+            # (iii)
+            center_condition_again = 1 / 2 * center_distances[center_index, relevant_assignment] < relevant_upper_bound
 
-                            # saved_dist_comp so richtig berechnet ???
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
+            all_conditions = not_same_center & lu_bound_condition & center_condition_again
+            unpruned_indices = relevant_indices[all_conditions]
 
-                            # todo: es kann leider passieren, dass wir hier rein gehen...
-                            if distance != dist(point, centroids[label]):
-                                print('Housten, we have a problem')
-                                raise RuntimeError('Upper bound was not equal to distance')
+            # 3a - d(x,c(x))
+            r_condition = loose_upper_bound[unpruned_indices]
+            need_to_update_indices = unpruned_indices[r_condition]
+            nooo_need_to_update_indices = unpruned_indices[np.logical_not(r_condition)]
+            # compute distances
+            distances[need_to_update_indices, assignment[need_to_update_indices]] = \
+                np.linalg.norm(data[need_to_update_indices] - centroids[assignment[need_to_update_indices]], axis=1)
+            dist_comp_pto += len(need_to_update_indices)
+            # update bounds after distance computation
+            upper_bounds[need_to_update_indices] = distances[need_to_update_indices, assignment[need_to_update_indices]]
+            lower_bounds[need_to_update_indices, assignment[need_to_update_indices]] = \
+                distances[need_to_update_indices, assignment[need_to_update_indices]]
+            # distance equals upper bound for these indices now
+            loose_upper_bound[need_to_update_indices] = False
 
-                        # 3b
-                        if distance > lower_bounds[point][other_label] or \
-                                distance > 1 / 2 * center_center_dist[(label, other_label)]:
-                            distance_other_center = dist(point, centroids[other_label])
-                            lower_bounds[point][other_label] = distance_other_center
-                            if distance_other_center < distance:
-                                assignment[point] = other_label
-                                label = other_label  # !!!!!!!!
-                                upper_bound_ptolemy[point] = distance_other_center  # ???
-                                not_converged = True
-                            else:
-                                saved_dist_comp_theory += 1
-                                saved_dist_comp_practice += 1
-                                pruning_only += 1
+            # if loose_upper_bound is False: upper bound is still tight
+            distances[nooo_need_to_update_indices, assignment[nooo_need_to_update_indices]] \
+                = upper_bounds[nooo_need_to_update_indices]
 
-        # new (old_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
+            # 3b - d(x,c)
+            condition_3b = distances[unpruned_indices, assignment[unpruned_indices]] > np.min(
+                [lower_bounds[unpruned_indices, center_index],
+                 1 / 2 * center_distances[assignment[unpruned_indices], center_index]], axis=0)
+            condition_3b_indices = unpruned_indices[condition_3b]
+            # compute distances
+            distances[condition_3b_indices, center_index] = np.linalg.norm(data[condition_3b_indices] - center, axis=1)
+            dist_comp_pto += len(condition_3b_indices)
+            # check, which points need a new assignment
+            new_assignment = distances[unpruned_indices, center_index] \
+                             < distances[unpruned_indices, assignment[unpruned_indices]]
+            new_assignment_indices = unpruned_indices[new_assignment]
+            # update assignment
+            assignment[new_assignment_indices] = center_index
+            # update upper_bounds when assignment is changed!
+            upper_bounds[new_assignment_indices] = distances[new_assignment_indices, center_index]
+            if converged and len(new_assignment_indices) > 0:
+                converged = False
 
-        # 4 and 7 (update center)
-        moved_distance = update_centroids(centroids, assignment)
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
+        # 4
+        new_centroids = np.copy(centroids)
+        for center_index, center in enumerate(centroids):
+            assigned_points = data[assignment == center_index]
+            if len(assigned_points) > 0:
+                new_centroids[center_index] = np.mean(assigned_points, axis=0)
 
-        # new (new_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
+        centroids_movement = np.linalg.norm(new_centroids - centroids, axis=1)
+        dist_comp_pto += k
 
-        for point in data:
-            # 5
-            # for label in range(k):
-                # lower_bound_ptolemy = (lower_bounds[point][label] * new_centers_to_zero_1[label]
-                #                       - point_to_zero_1[point] * moved_distance[label]) / old_centers_to_zero_1[label]
-                # lower_bounds[point][label] = max(0, lower_bound_ptolemy)
-            lower_bounds[point] = (np.array(lower_bounds[point]) * np.array(list(new_centers_to_zero_1.values()))
-                                   - point_to_zero_1[point] * np.array(moved_distance)) \
-                                     / np.array(list(old_centers_to_zero_1.values()))
+        # ptolemy
+        pivot_dist_old_center = pivot_dist_new_center.copy()
+        pivot_dist_new_center = np.linalg.norm(new_centroids - pivot, axis=1)
+        dist_comp_pto += k
 
-            # 6
-            label = assignment[point]
-            upper_bound_ptolemy_1 = (upper_bound_ptolemy[point] * new_centers_to_zero_1[label]
-                                     + point_to_zero_1[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_1[label]
-            upper_bound_ptolemy[point] = upper_bound_ptolemy_1
-            r[point] = True
+        # 5
+        for center_index, center in enumerate(centroids):
+            lower_bounds[indices, center_index] = \
+                (lower_bounds[indices, center_index] * pivot_dist_new_center[center_index] -
+                 pivot_dist_data[indices] * centroids_movement[center_index]) / pivot_dist_old_center[center_index]
 
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
+        # 6
+        upper_bounds[indices] = ((upper_bounds[indices] * pivot_dist_new_center[assignment] +
+                                  pivot_dist_data[indices] * centroids_movement[assignment]) /
+                                 pivot_dist_old_center[assignment])
+        loose_upper_bound[indices] = True
+
+        # 7
+        centroids = new_centroids
+
+    print(f'Elkan Pto Dist_Comp {dist_comp_pto}')
+    return centroids, assignment
 
 
-def elkan_style_triangle_ptolemy_combined_algorithm_single(data, k, initial_centroids):
-    """
-
-    :param data:
-    :param k:
-    :param initial_centroids:
-    :return:
-    """
-    # Initialisation
-    centroids = initial_centroids
-    assignment = dict()
-    upper_bound_combined = dict()
-    # the points are the keys and each value is a list of lower bounds with length k
-    lower_bounds = dict()
-    r = dict.fromkeys(data, True)
-    center_bound = dict()
-    center_center_dist = dict()
-    saved_dist_comp_theory = 0
-    saved_dist_comp_practice = 0
-    pruning_only = 0
-
-    # new (point_to_center distances)
-    dimension = len(data[0])
-    zero_1 = tuple([0] * 0 + [100] * (dimension - 0))
-    point_to_zero_1 = update_points_to_pivot_distances(data, zero_1, saved_dist_comp_theory,
-                                                       saved_dist_comp_practice)
-
-    # Initialise bounds
-    for point in data:
-        all_dist_this_point = all_dist(dataset=centroids, query=point)
-        new_label = all_dist_this_point.argmin()
-        assignment[point] = new_label
-        distances = list(all_dist_this_point)
-        lower_bounds[point] = distances
-        min_dist = all_dist_this_point[new_label]
-        upper_bound_combined[point] = min_dist
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-    iteration_count = 0
-    not_converged = True
-    while not_converged:
-        iteration_count += 1
-        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
-        if iteration_count > 2:
-            not_converged = False
-
-        # 1
-        saved_dist_comp_theory -= k * (k - 1) / 2  # alle Werte oberhalb der Diagonale in der Abstandsmatrix
-        saved_dist_comp_practice -= k * k
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            for second_label in all_dist_centroid.index:
-                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1 / 2 * new_bound
-
-        for point in data:
-            label = assignment[point]
-            # 2
-            if upper_bound_combined[point] < 0.9999 * dist(point, centroids[label]):
-                print('Oh noo!')
-
-            if upper_bound_combined[point] <= center_bound[label]:
-                saved_dist_comp_theory += k
-                saved_dist_comp_practice += k
-                pruning_only += k
-                pass
-            # 3
-            else:
-                for other_label in [lab for lab in range(k) if lab != label]:
-                    if upper_bound_combined[point] > lower_bounds[point][other_label] and \
-                            upper_bound_combined[point] > 1 / 2 * center_center_dist[(label, other_label)]:
-                        # 3a
-                        if r[point]:
-                            distance = dist(point, centroids[label])
-                            # die ptolomäische Variante profitiert noch nicht davon, dass man die upper bound hier
-                            # aktualisieren könnte
-                            upper_bound_combined[point] = distance  # ???
-                            lower_bounds[point][label] = distance
-                            r[point] = False
-                        else:
-                            distance = upper_bound_combined[point]
-
-                            # saved_dist_comp so richtig berechnet ???
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
-
-                            # todo: es kann leider passieren, dass wir hier rein gehen...
-                            if distance != dist(point, centroids[label]):
-                                print('Housten, we have a problem')
-                                raise RuntimeError('Upper bound was not equal to distance')
-
-                        # 3b
-                        if distance > lower_bounds[point][other_label] or \
-                                distance > 1 / 2 * center_center_dist[(label, other_label)]:
-                            distance_other_center = dist(point, centroids[other_label])
-                            lower_bounds[point][other_label] = distance_other_center
-                            if distance_other_center < distance:
-                                assignment[point] = other_label
-                                label = other_label  # !!!!!!!!
-                                upper_bound_combined[point] = distance_other_center  # ???
-                                not_converged = True
-                        else:
-                            saved_dist_comp_theory += 1
-                            saved_dist_comp_practice += 1
-                            pruning_only += 1
-
-        # new (old_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        old_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-
-        # 4 and 7 (update center)
-        moved_distance = update_centroids(centroids, assignment)
-        # the distances the centers moved is not necessary for lloyd
-        saved_dist_comp_theory -= k
-        saved_dist_comp_practice -= k
-
-        # new (new_center_to_zero distances)
-        # wir indizieren hier nicht mit den Zentren, sondern mit den Labels.
-        new_centers_to_zero_1 = update_centers_to_pivot_distances(centroids, zero_1, saved_dist_comp_theory,
-                                                                  saved_dist_comp_practice)
-
-        for point in data:
-            # 5
-            # lower_bounds[point] = (np.array(lower_bounds[point]) * np.array(list(new_centers_to_zero_1.values()))
-            #                        - point_to_zero_1[point] * np.array(moved_distance)) \
-            #                          / np.array(list(old_centers_to_zero_1.values()))
-            lower_bounds[point] = list(np.array(lower_bounds[point]) - np.array(moved_distance))
-
-            # 6
-            label = assignment[point]
-            upper_bound_ptolemy_1 = (upper_bound_combined[point] * new_centers_to_zero_1[label]
-                                     + point_to_zero_1[point] * moved_distance[label]) \
-                                     / old_centers_to_zero_1[label]
-            upper_bound_triangle = upper_bound_combined[point] + moved_distance[assignment[point]]
-            min_upper_bound = min(upper_bound_ptolemy_1, upper_bound_triangle)
-            upper_bound_combined[point] = min_upper_bound
-            r[point] = True
-
-    return centroids, assignment, iteration_count, int(saved_dist_comp_theory), saved_dist_comp_practice
 
 
-def elkan_algorithm_without_counting(data, k, initial_centroids):
-    # Initialisation
-    centroids = initial_centroids
-    assignment = dict()
-    # the points are the keys and each value is a list of lower bounds with length k
-    lower_bounds = dict()
-    upper_bound = dict()
-    r = dict.fromkeys(data, True)
-    center_bound = dict()
-    center_center_dist = dict()
 
-    # first assignment and get first bounds tight
-    for point in data:
-        all_dist_this_point = all_dist(dataset=centroids, query=point)
-        new_label = all_dist_this_point.argmin()
-        assignment[point] = new_label
-        distances = list(all_dist_this_point)
-        lower_bounds[point] = distances
-        min_dist = all_dist_this_point[new_label]
-        upper_bound[point] = min_dist
 
-    iteration_count = 0
-    not_converged = True
-    while not_converged:
-        iteration_count += 1
-        # in the first iteration only the centroids get updated, and we do not visit the convergence condition
-        if iteration_count > 2:
-            not_converged = False
-        # 1
-        for label, centroid in enumerate(centroids):
-            all_dist_centroid = all_dist(dataset=centroids, query=centroid)
-            for second_label in all_dist_centroid.index:
-                center_center_dist[(label, second_label)] = all_dist_centroid[second_label]
-            all_dist_centroid = all_dist_centroid.drop(label)
-            new_bound = all_dist_centroid.min()
-            center_bound[label] = 1/2 * new_bound
 
-        for point in data:
-            label = assignment[point]
-            # 2
-            if upper_bound[point] < 0.9999 * dist(point, centroids[label]):
-                print('Oh noo!')
 
-            if upper_bound[point] <= center_bound[label]:
-                pass
-            # 3
-            else:
-                for other_label in [lab for lab in range(k) if lab != label]:
-                    if upper_bound[point] > lower_bounds[point][other_label] and \
-                            upper_bound[point] > 1/2 * center_center_dist[(label, other_label)]:
-                        # 3a
-                        if r[point]:
-                            distance = dist(point, centroids[label])
-                            upper_bound[point] = distance
-                            lower_bounds[point][label] = distance
-                            r[point] = False
-                        else:
-                            distance = upper_bound[point]
-                            if distance != dist(point, centroids[label]):
-                                print('Housten, we have a problem')
-                                raise RuntimeError('Upper bound was not equal to distance')
-
-                        # 3b
-                        if distance > lower_bounds[point][other_label] or \
-                                distance > 1/2 * center_center_dist[(label, other_label)]:
-                            distance_other_center = dist(point, centroids[other_label])
-                            lower_bounds[point][other_label] = distance_other_center
-                            if distance_other_center < distance:
-                                assignment[point] = other_label
-                                label = other_label  # !!!!!!!!
-                                upper_bound[point] = distance_other_center
-                                not_converged = True
-
-        # 4 and 7
-        moved_distance = update_centroids(centroids, assignment)
-
-        for point in data:
-            # 5
-            # todo: max(0, ...) hinzufügen
-            lower_bounds[point] = list( np.array(lower_bounds[point]) - np.array(moved_distance))
-            # # veraltete, nicht vektorisierte Variante
-            # for label in range(k):
-            #     lower_bounds[point][label] = max(0, lower_bounds[point][label] - moved_distance[label])
-            # 6
-            upper_bound[point] += moved_distance[assignment[point]]
-            r[point] = True
-
-    return centroids, assignment, iteration_count, 1, 1
 

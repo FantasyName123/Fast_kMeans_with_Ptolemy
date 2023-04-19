@@ -5,6 +5,15 @@ import random
 from helpers import *
 
 
+# todo: Methoden mit/ohne Docstring
+#  initialise_centroids: Mit (-> das mit dem 120 cube nochmal überdenken)
+#  initialise_centroids_from_dataset: Mit
+#  update_centroids: Mit
+#  update_centers_to_pivot_distances: Mit
+#  update_points_to_pivot_distances: Mit
+#  calculate_zielfunktion: Mit
+#    -> alle fertig :)
+
 def initialise_centroids(data, k):
     """
     Creates k points uniformly distributed in the (([0, 120]^d cube)), where d is the dimension of the points in data. Uses
@@ -32,7 +41,7 @@ def initialise_centroids_from_dataset(data, k, seed=0):
     :return: A list containing k tuples of the same dimension as in data.
     """
     random.seed(seed)
-    return random.sample(population=data, k=k)
+    return random.sample(population=list(data), k=k)
 
 
 def update_centroids(centroids, assignment):
@@ -71,7 +80,7 @@ def update_centroids(centroids, assignment):
 
 def update_centers_to_pivot_distances(centroids, pivot, saved_dist_comp_theory=None, saved_dist_comp_practice=None):
     """
-    Computes the distances from the centroids to the pivot object. If provided decreases the number of saved distance
+    Computes the distances from the centroids to the pivot object. If provided, decreases the number of saved distance
     computations by the number of distances computed by this function call, which is the length of centroids.
 
     :param centroids: A list of points (tuples of floats) of the same dimension.
@@ -109,7 +118,7 @@ def update_points_to_pivot_distances(points, pivot, saved_dist_comp_theory=None,
     return dict(zip(points, distances_temp))
 
 
-def calculate_zielfunktion(centroids, assignment):
+def evaluate_objective_function(centroids, assignment):
     """
     Evaluates the objective function of the k-Means problem for the given centers and assignment. Which is the squared
     sum of the points and their assigned centers.
@@ -120,15 +129,15 @@ def calculate_zielfunktion(centroids, assignment):
     """
     labels = range(len(centroids))
     data = list(assignment.keys())
-    zielfunktionswert = 0
+    objective_function_value = 0
     for label in labels:
         assigned_points = [point for point in data if assignment.get(point) == label]
         if len(assigned_points) > 0:
             centroid = centroids[label]
             distances = np.array(all_dist(assigned_points, centroid))
-            zielfunktionswert += (distances ** 2).sum()
+            objective_function_value += (distances ** 2).sum()
         else:
             continue
 
-    zielfunktionswert = round(zielfunktionswert, 4)
-    return zielfunktionswert
+    objective_function_value = round(objective_function_value, 4)
+    return objective_function_value
