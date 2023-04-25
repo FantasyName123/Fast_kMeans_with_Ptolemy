@@ -74,7 +74,7 @@ ausgelegt, um die main Datei aufzuräumen. Sie beziehen sich allerdings ebenfall
 Methoden und müssten noch angepasst werden.
 
 ### Mögliche Erweiterungen und Fortführungen
-Unangenehmerweise gibt es eine Sache, die noch so funktioniert, wie ich mir das vorgestellt habe.
+Unangenehmerweise gibt es eine Sache, die noch nicht so funktioniert, wie ich mir das vorgestellt habe.
 Und zwar sollte der Ablauf der Algorithmen und die Auswahl der Zentren bei der Initialisierung
 deterministisch sein, um Reproduzierbarkeit zu gewährleisten. Allerdings kommen bei 
 aufeinanderfolgenden Durchläufen verschiedene Anzahlen von Distanzberechnung heraus, was
